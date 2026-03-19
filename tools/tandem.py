@@ -68,6 +68,7 @@ _has_navigated = False  # Track if AI has navigated in this session
 _tool_call_count = 0    # Track tool calls per chat turn
 _last_tool_time = 0     # Timestamp of last tool call — resets counter after gap
 _MAX_TOOL_CALLS = 6     # After this many calls, nudge AI to wrap up
+_current_task_query = ""  # Track the original search query to prevent topic drift
 
 def _start_wingman_bridge():
     """Start the background bridge thread (once)."""
@@ -1490,14 +1491,19 @@ def browser_status():
 
 def execute(function_name, arguments, config):
     """Sapphire plugin dispatcher — routes tool calls to the correct function."""
-    global _tool_call_count, _last_tool_time
+    global _tool_call_count, _last_tool_time, _current_task_query
 
     # Reset counter if >60 seconds since last tool call (new chat turn)
     now = time.time()
     if now - _last_tool_time > 60:
         _tool_call_count = 0
+        _current_task_query = ""  # Reset query for new turn
     _last_tool_time = now
     _tool_call_count += 1
+
+    # Track the first search query as the "current task" to prevent topic drift
+    if function_name == "tandem_search" and not _current_task_query:
+        _current_task_query = arguments.get("query", "")
 
     # Log tool calls with arguments for debugging
     arg_summary = {k: (v[:80] + '...' if isinstance(v, str) and len(v) > 80 else v) for k, v in (arguments or {}).items()}
@@ -1506,12 +1512,13 @@ def execute(function_name, arguments, config):
     # Hard block after limit — refuse to execute, force the AI to answer
     if _tool_call_count > _MAX_TOOL_CALLS:
         logger.warning(f"Tandem tool call #{_tool_call_count} BLOCKED — over limit of {_MAX_TOOL_CALLS}")
-        return ("STOP. You have exceeded the maximum number of browser actions. "
-                "Do NOT call any more tools — no tandem tools, no web_search, "
-                "no get_website, no browsing tools of ANY kind. You have enough "
-                "information. Provide your answer NOW using the information you "
-                "already gathered. Re-read the user's LAST message and respond "
-                "to it directly."), True
+        task_hint = f' Your task was about "{_current_task_query}".' if _current_task_query else ''
+        return (f"STOP. You have exceeded the maximum number of browser actions. "
+                f"Do NOT call any more tools — no tandem tools, no web_search, "
+                f"no get_website, no browsing tools of ANY kind. You have enough "
+                f"information.{task_hint} Provide your answer NOW using the "
+                f"information you already gathered. Re-read the user's LAST "
+                f"message and respond to it directly. Do NOT change topics."), True
 
     # Start the Wingman chat bridge on first tool call
     _start_wingman_bridge()
@@ -1574,12 +1581,19 @@ def execute(function_name, arguments, config):
         else:
             return f"Unknown function '{function_name}'.", False
 
+        # Anchor every result with the current task to prevent topic drift
+        if _current_task_query and _tool_call_count > 1:
+            result = (f"[CURRENT TASK: \"{_current_task_query}\" — stay focused on "
+                      f"this topic. Do NOT switch to a different topic.]\n\n{result}")
+
         # Warn at limit, hard block comes on the NEXT call
         if _tool_call_count == _MAX_TOOL_CALLS:
-            result += ("\n\n⚠ FINAL BROWSER ACTION. You will NOT be able to use "
-                       "the browser again after this. Provide your answer NOW "
-                       "based on the information you have gathered. "
-                       "Re-read the user's LAST message and respond to it.")
+            result += (f"\n\n⚠ FINAL BROWSER ACTION. You will NOT be able to use "
+                       f"the browser again after this. Provide your answer NOW "
+                       f"about \"{_current_task_query or 'the user question'}\" "
+                       f"based on the information you have gathered. "
+                       f"Re-read the user's LAST message and respond to it. "
+                       f"Do NOT search for a different topic.")
 
         return result, True
     except Exception as e:
