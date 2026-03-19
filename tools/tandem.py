@@ -513,6 +513,16 @@ def _get_node_exe_path(node_dir):
         return node_dir / "bin" / _get_node_exe_name()
 
 
+def _check_node_version(version_str):
+    """Check if a Node.js version string meets the minimum requirement (v20+)."""
+    try:
+        # Parse "v20.18.0" → 20
+        major = int(version_str.strip().lstrip("v").split(".")[0])
+        return major >= 20
+    except (ValueError, IndexError):
+        return False
+
+
 def _ensure_node_available(app_dir):
     """Ensure Node.js is available — download portable version if needed."""
     import zipfile
@@ -526,8 +536,12 @@ def _ensure_node_available(app_dir):
             shell=IS_WINDOWS
         )
         if result.returncode == 0:
-            logger.info(f"Found system Node.js {result.stdout.decode().strip()}")
-            return True
+            version = result.stdout.decode().strip()
+            if _check_node_version(version):
+                logger.info(f"Found system Node.js {version}")
+                return True
+            else:
+                logger.warning(f"System Node.js {version} is too old (need v20+), will use portable version")
     except Exception:
         pass
 
@@ -535,9 +549,20 @@ def _ensure_node_available(app_dir):
     node_dir = _get_portable_node_dir()
     node_exe = _get_node_exe_path(node_dir)
     if node_exe.exists():
-        _add_node_to_path(node_dir)
-        logger.info(f"Using portable Node.js from {node_dir}")
-        return True
+        # Verify version of portable install too
+        try:
+            result = subprocess.run([str(node_exe), "--version"], capture_output=True, timeout=10)
+            version = result.stdout.decode().strip()
+            if _check_node_version(version):
+                _add_node_to_path(node_dir)
+                logger.info(f"Using portable Node.js {version} from {node_dir}")
+                return True
+            else:
+                logger.warning(f"Portable Node.js {version} is too old, re-downloading...")
+                import shutil
+                shutil.rmtree(node_dir, ignore_errors=True)
+        except Exception:
+            pass
 
     # Step 3: Download portable Node.js to ~/.tandem/node/
     NODE_VERSION = "v20.18.0"
@@ -645,31 +670,25 @@ def _auto_install_tandem(app_dir):
 
     logger.info("First run — installing Tandem Browser dependencies (this may take a minute)...")
 
-    # shell=True needed on Windows for npm.cmd, not needed on Unix
-    use_shell = IS_WINDOWS
+    def _run_npm(args, timeout_sec):
+        """Run an npm command, handling shell=True string quoting on Windows."""
+        if IS_WINDOWS:
+            # shell=True on Windows needs a single string; quote path for spaces
+            cmd = f'"{npm_cmd}" {" ".join(args)}'
+            return subprocess.run(cmd, cwd=str(app_dir), capture_output=True, timeout=timeout_sec, shell=True)
+        else:
+            return subprocess.run([npm_cmd] + args, cwd=str(app_dir), capture_output=True, timeout=timeout_sec)
 
     try:
         # Run npm install
-        install = subprocess.run(
-            [npm_cmd, "install"],
-            cwd=str(app_dir),
-            capture_output=True,
-            timeout=300,  # 5 minute timeout
-            shell=use_shell
-        )
+        install = _run_npm(["install"], 300)
         if install.returncode != 0:
             logger.error(f"npm install failed: {install.stderr.decode()[:500]}")
             return False
         logger.info("npm install complete")
 
         # Compile TypeScript
-        compile_result = subprocess.run(
-            [npm_cmd, "run", "compile"],
-            cwd=str(app_dir),
-            capture_output=True,
-            timeout=120,
-            shell=use_shell
-        )
+        compile_result = _run_npm(["run", "compile"], 120)
         if compile_result.returncode != 0:
             logger.error(f"TypeScript compile failed: {compile_result.stderr.decode()[:500]}")
             return False
@@ -739,38 +758,44 @@ def _ensure_tandem_running():
         return False
 
     _launch_in_progress = True
-    electron_exe = _get_electron_path(app_dir)
-    logger.info(f"Auto-launching Tandem Browser from {app_dir}")
-
-    # macOS: clear quarantine flags so Gatekeeper doesn't block Electron
-    if IS_MAC and electron_exe.exists():
-        try:
-            subprocess.run(
-                ["xattr", "-cr", str(electron_exe.parent.parent.parent)],  # Electron.app dir
-                capture_output=True, timeout=10
-            )
-            logger.info("Cleared macOS quarantine flags on Electron.app")
-        except Exception as e:
-            logger.warning(f"Could not clear quarantine flags: {e}")
-
-    env = os.environ.copy()
-    env.pop("ELECTRON_RUN_AS_NODE", None)
-    env.pop("ATOM_SHELL_INTERNAL_RUN_AS_NODE", None)
-
-    # Ensure portable Node.js is on PATH for Electron child processes
-    node_dir = _get_portable_node_dir()
-    node_exe = _get_node_exe_path(node_dir)
-    if node_exe.exists():
-        _add_node_to_path(node_dir)
-        env["PATH"] = os.environ["PATH"]
-
     try:
+        electron_exe = _get_electron_path(app_dir)
+        logger.info(f"Auto-launching Tandem Browser from {app_dir}")
+
+        # macOS: clear quarantine flags so Gatekeeper doesn't block Electron
+        if IS_MAC and electron_exe.exists():
+            try:
+                subprocess.run(
+                    ["xattr", "-cr", str(electron_exe.parent.parent.parent)],  # Electron.app dir
+                    capture_output=True, timeout=10
+                )
+                logger.info("Cleared macOS quarantine flags on Electron.app")
+            except Exception as e:
+                logger.warning(f"Could not clear quarantine flags: {e}")
+
+        env = os.environ.copy()
+        env.pop("ELECTRON_RUN_AS_NODE", None)
+        env.pop("ATOM_SHELL_INTERNAL_RUN_AS_NODE", None)
+
+        # Ensure portable Node.js is on PATH for Electron child processes
+        node_dir = _get_portable_node_dir()
+        node_exe = _get_node_exe_path(node_dir)
+        if node_exe.exists():
+            _add_node_to_path(node_dir)
+            env["PATH"] = os.environ["PATH"]
+
+        # Write stderr to a log file instead of PIPE to avoid deadlock
+        # (Electron can fill the 64KB pipe buffer, blocking the process)
+        tandem_log_dir = Path.home() / ".tandem"
+        tandem_log_dir.mkdir(parents=True, exist_ok=True)
+        stderr_log = open(tandem_log_dir / "electron-stderr.log", "w")
+
         _tandem_process = subprocess.Popen(
             [str(electron_exe), "."],
             cwd=str(app_dir),
             env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=stderr_log,
             **_get_popen_flags()
         )
         # Wait for API to become ready
@@ -779,39 +804,36 @@ def _ensure_tandem_running():
             # Check if process crashed
             if _tandem_process.poll() is not None:
                 exit_code = _tandem_process.returncode
-                stderr_out = ""
-                stdout_out = ""
+                stderr_log.close()
+                # Read crash output from log file
+                stderr_content = ""
                 try:
-                    stderr_out = _tandem_process.stderr.read().decode("utf-8", errors="replace")[:1000]
-                    stdout_out = _tandem_process.stdout.read().decode("utf-8", errors="replace")[:500]
+                    stderr_content = (tandem_log_dir / "electron-stderr.log").read_text(errors="replace")[:1500]
                 except Exception:
                     pass
                 logger.error(f"Electron crashed on launch (exit code {exit_code})")
-                if stderr_out:
-                    logger.error(f"Electron stderr: {stderr_out}")
-                if stdout_out:
-                    logger.error(f"Electron stdout: {stdout_out}")
+                if stderr_content:
+                    logger.error(f"Electron stderr: {stderr_content}")
                 _tandem_process = None
-                _launch_in_progress = False
                 return False
             if _is_tandem_running():
                 logger.info("Tandem Browser is ready")
-                _launch_in_progress = False
                 return True
-        # Timed out — grab any output for debugging
+        # Timed out — check log file for clues
         logger.warning("Tandem Browser launched but API not responding after 15 seconds")
         try:
-            stderr_peek = _tandem_process.stderr.read(1000) if _tandem_process.stderr else b""
-            if stderr_peek:
-                logger.warning(f"Electron stderr: {stderr_peek.decode('utf-8', errors='replace')}")
+            stderr_log.flush()
+            stderr_content = (tandem_log_dir / "electron-stderr.log").read_text(errors="replace")[:1500]
+            if stderr_content:
+                logger.warning(f"Electron stderr: {stderr_content}")
         except Exception:
             pass
-        _launch_in_progress = False
         return False
     except Exception as e:
         logger.error(f"Failed to launch Tandem Browser: {e}")
-        _launch_in_progress = False
         return False
+    finally:
+        _launch_in_progress = False
 
 # Auto-start the Wingman bridge when plugin loads
 _start_wingman_bridge()
