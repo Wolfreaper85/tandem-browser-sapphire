@@ -198,7 +198,7 @@ def _wingman_bridge_loop():
 
     while _bridge_running:
         try:
-            time.sleep(2)
+            time.sleep(5)  # Reduced polling frequency to ease load on Tandem
             if not _is_tandem_running():
                 continue
 
@@ -1232,8 +1232,9 @@ def browse_url(url, new_tab=False):
     except Exception:
         target_domain = ""
 
-    for attempt in range(8):
-        time.sleep(1)
+    # Wait 2 seconds for initial load, then check up to 3 more times
+    time.sleep(2)
+    for attempt in range(4):
         page = _api_request("/page-content", timeout=10)
         if isinstance(page, dict) and not page.get("error"):
             current_url = (page.get("url", "") or "").lower()
@@ -1242,15 +1243,18 @@ def browse_url(url, new_tab=False):
 
             # Skip blank/about:blank pages
             if not current_url or current_url in ("about:blank", ""):
+                time.sleep(1.5)
                 continue
 
             # Check domain match (strip www for comparison)
             current_domain = current_url.split("//")[-1].split("/")[0].replace("www.", "")
             if target_domain and target_domain in current_domain:
                 # Page loaded — but warn if content is empty (might still be loading)
-                if not page_text.strip() and attempt < 5:
+                if not page_text.strip() and attempt < 2:
+                    time.sleep(1.5)
                     continue  # Give it more time to render
                 return f"Navigated to: {title}\nURL: {current_url}\n(Page loaded successfully)"
+        time.sleep(1.5)
 
     # Navigation failed — reset to DuckDuckGo home
     _api_request("/navigate", method="POST", data={"url": "https://duckduckgo.com"})
@@ -1271,21 +1275,22 @@ def web_search(query):
         return nav["error"]
 
     # Wait for OUR search results — verify query is in URL
+    # Use fewer polls with longer intervals to reduce API pressure
     loaded = False
-    for _ in range(8):
-        time.sleep(0.5)
+    time.sleep(2)  # Initial wait for DuckDuckGo to load
+    for _ in range(4):
         page = _api_request("/page-content", timeout=5)
         if isinstance(page, dict) and not page.get("error"):
             current_url = page.get("url", "")
             if "duckduckgo.com" in current_url and encoded in current_url:
                 loaded = True
                 break
+        time.sleep(1.5)
 
     if not loaded:
-        # Fallback: wait for #links element
+        # Fallback: let Tandem wait for the element (single request, no polling)
         _api_request("/wait", method="POST",
                      data={"selector": "#links", "timeout": 8000}, timeout=12)
-        time.sleep(1)
 
     # Read final page content
     result = _api_request("/page-content", timeout=15)
