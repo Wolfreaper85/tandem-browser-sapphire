@@ -1507,9 +1507,11 @@ def execute(function_name, arguments, config):
     if _tool_call_count > _MAX_TOOL_CALLS:
         logger.warning(f"Tandem tool call #{_tool_call_count} BLOCKED — over limit of {_MAX_TOOL_CALLS}")
         return ("STOP. You have exceeded the maximum number of browser actions. "
-                "Do NOT call any more tandem tools. Provide your answer NOW using "
-                "the information you already gathered. Re-read the user's LAST "
-                "message and respond to it directly."), True
+                "Do NOT call any more tools — no tandem tools, no web_search, "
+                "no get_website, no browsing tools of ANY kind. You have enough "
+                "information. Provide your answer NOW using the information you "
+                "already gathered. Re-read the user's LAST message and respond "
+                "to it directly."), True
 
     # Start the Wingman chat bridge on first tool call
     _start_wingman_bridge()
