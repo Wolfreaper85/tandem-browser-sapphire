@@ -1,0 +1,212 @@
+import type { Session, OnBeforeRequestListenerDetails, OnBeforeSendHeadersListenerDetails, OnHeadersReceivedListenerDetails } from 'electron';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('Dispatcher');
+
+export interface BeforeRequestConsumer {
+  name: string;
+  priority: number;
+  handler: (
+    details: OnBeforeRequestListenerDetails
+  ) => { cancel: boolean } | null | Promise<{ cancel: boolean } | null>;
+}
+
+export interface BeforeSendHeadersConsumer {
+  name: string;
+  priority: number;
+  handler: (details: OnBeforeSendHeadersListenerDetails, headers: Record<string, string>) => Record<string, string>;
+}
+
+export interface HeadersReceivedConsumer {
+  name: string;
+  priority: number;
+  handler: (
+    details: OnHeadersReceivedListenerDetails,
+    responseHeaders: Record<string, string[]>
+  ) => { cancel?: boolean; responseHeaders: Record<string, string[]> } | Record<string, string[]>;
+}
+
+export interface BeforeRedirectConsumer {
+  name: string;
+  handler: (details: Electron.OnBeforeRedirectListenerDetails) => void;
+}
+
+export interface CompletedConsumer {
+  name: string;
+  handler: (details: Electron.OnCompletedListenerDetails) => void;
+}
+
+export interface ErrorConsumer {
+  name: string;
+  handler: (details: Electron.OnErrorOccurredListenerDetails) => void;
+}
+
+function hasResponseHeadersPayload(
+  result: { cancel?: boolean; responseHeaders: Record<string, string[]> } | Record<string, string[]>
+): result is { cancel?: boolean; responseHeaders: Record<string, string[]> } {
+  return 'responseHeaders' in result && !Array.isArray(result.responseHeaders);
+}
+
+export class RequestDispatcher {
+  private session: Session;
+  private attached = false;
+  private beforeRequestConsumers: BeforeRequestConsumer[] = [];
+  private beforeSendHeadersConsumers: BeforeSendHeadersConsumer[] = [];
+  private headersReceivedConsumers: HeadersReceivedConsumer[] = [];
+  private beforeRedirectConsumers: BeforeRedirectConsumer[] = [];
+  private completedConsumers: CompletedConsumer[] = [];
+  private errorConsumers: ErrorConsumer[] = [];
+
+  constructor(session: Session) {
+    this.session = session;
+  }
+
+  registerBeforeRequest(consumer: BeforeRequestConsumer): void {
+    this.beforeRequestConsumers.push(consumer);
+  }
+
+  registerBeforeSendHeaders(consumer: BeforeSendHeadersConsumer): void {
+    this.beforeSendHeadersConsumers.push(consumer);
+  }
+
+  registerHeadersReceived(consumer: HeadersReceivedConsumer): void {
+    this.headersReceivedConsumers.push(consumer);
+  }
+
+  registerBeforeRedirect(consumer: BeforeRedirectConsumer): void {
+    this.beforeRedirectConsumers.push(consumer);
+  }
+
+  registerCompleted(consumer: CompletedConsumer): void {
+    this.completedConsumers.push(consumer);
+  }
+
+  registerError(consumer: ErrorConsumer): void {
+    this.errorConsumers.push(consumer);
+  }
+
+  attach(): void {
+    this.attached = true;
+    this.reattach();
+  }
+
+  private reattach(): void {
+    this.session.webRequest.onBeforeRequest((details, callback) => {
+      this.beforeRequestConsumers.sort((a, b) => a.priority - b.priority);
+      const start = performance.now();
+
+      (async () => {
+        for (const consumer of this.beforeRequestConsumers) {
+          try {
+            const result = await consumer.handler(details);
+            if (result?.cancel) {
+              callback({ cancel: true });
+              const elapsed = performance.now() - start;
+              if (elapsed > 5) {
+                log.warn(`Slow onBeforeRequest: ${elapsed.toFixed(1)}ms (blocked by ${consumer.name})`);
+              }
+              return;
+            }
+          } catch (err) {
+            log.error(`Error in ${consumer.name}.onBeforeRequest:`, err);
+          }
+        }
+
+        callback({ cancel: false });
+        const elapsed = performance.now() - start;
+        if (elapsed > 5) {
+          log.warn(`Slow onBeforeRequest: ${elapsed.toFixed(1)}ms for ${details.url.substring(0, 80)}`);
+        }
+      })().catch(err => {
+        log.error('Unhandled onBeforeRequest error:', err);
+        callback({ cancel: false });
+      });
+    });
+
+    this.session.webRequest.onBeforeSendHeaders((details, callback) => {
+      this.beforeSendHeadersConsumers.sort((a, b) => a.priority - b.priority);
+      let headers = { ...details.requestHeaders };
+
+      for (const consumer of this.beforeSendHeadersConsumers) {
+        try {
+          headers = consumer.handler(details, headers);
+        } catch (err) {
+          log.error(`Error in ${consumer.name}.onBeforeSendHeaders:`, err);
+        }
+      }
+
+      callback({ requestHeaders: headers });
+    });
+
+    this.session.webRequest.onHeadersReceived((details, callback) => {
+      this.headersReceivedConsumers.sort((a, b) => a.priority - b.priority);
+      let responseHeaders = { ...(details.responseHeaders || {}) };
+
+      for (const consumer of this.headersReceivedConsumers) {
+        try {
+          const result = consumer.handler(details, responseHeaders);
+          // Support cancel (for redirect blocking)
+          if (result && typeof result === 'object' && 'cancel' in result && result.cancel) {
+            callback({ cancel: true });
+            return;
+          }
+          // Support both return shapes: { responseHeaders } or raw headers object
+          if (result && typeof result === 'object' && hasResponseHeadersPayload(result)) {
+            responseHeaders = result.responseHeaders;
+          } else {
+            responseHeaders = result as Record<string, string[]>;
+          }
+        } catch (err) {
+          log.error(`Error in ${consumer.name}.onHeadersReceived:`, err);
+        }
+      }
+
+      callback({ responseHeaders });
+    });
+
+    this.session.webRequest.onBeforeRedirect((details) => {
+      for (const consumer of this.beforeRedirectConsumers) {
+        try {
+          consumer.handler(details);
+        } catch (err) {
+          log.error(`Error in ${consumer.name}.onBeforeRedirect:`, err);
+        }
+      }
+    });
+
+    this.session.webRequest.onCompleted((details) => {
+      for (const consumer of this.completedConsumers) {
+        try {
+          consumer.handler(details);
+        } catch (err) {
+          log.error(`Error in ${consumer.name}.onCompleted:`, err);
+        }
+      }
+    });
+
+    this.session.webRequest.onErrorOccurred((details) => {
+      for (const consumer of this.errorConsumers) {
+        try {
+          consumer.handler(details);
+        } catch (err) {
+          log.error(`Error in ${consumer.name}.onErrorOccurred:`, err);
+        }
+      }
+    });
+
+    log.info(`Attached with ${this.beforeRequestConsumers.length} onBeforeRequest, ${this.beforeSendHeadersConsumers.length} onBeforeSendHeaders, ${this.headersReceivedConsumers.length} onHeadersReceived consumers`);
+  }
+
+  getStatus(): object {
+    return {
+      consumers: {
+        onBeforeRequest: this.beforeRequestConsumers.map(c => ({ name: c.name, priority: c.priority })),
+        onBeforeSendHeaders: this.beforeSendHeadersConsumers.map(c => ({ name: c.name, priority: c.priority })),
+        onHeadersReceived: this.headersReceivedConsumers.map(c => ({ name: c.name, priority: c.priority })),
+        onBeforeRedirect: this.beforeRedirectConsumers.map(c => c.name),
+        onCompleted: this.completedConsumers.map(c => c.name),
+        onError: this.errorConsumers.map(c => c.name),
+      }
+    };
+  }
+}

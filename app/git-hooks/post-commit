@@ -1,0 +1,77 @@
+#!/bin/bash
+# Auto-bump version + update CHANGELOG + update about.html on every commit
+
+# Get last commit message
+COMMIT_MSG=$(git log -1 --pretty=%B)
+COMMIT_HASH=$(git log -1 --pretty=%h)
+
+# Strip leading emoji + whitespace so "🗂️ feat: ..." still matches "feat: ..."
+STRIPPED_MSG=$(echo "$COMMIT_MSG" | sed 's/^[^a-zA-Z]*//')
+
+# Skip if this is already a version bump commit
+if [[ "$STRIPPED_MSG" =~ ^chore:\ bump\ to\ v[0-9] ]]; then
+  exit 0
+fi
+
+# Determine bump type from conventional commit prefix
+BUMP_TYPE=""
+if [[ "$STRIPPED_MSG" =~ ^feat!: ]] || [[ "$COMMIT_MSG" =~ BREAKING\ CHANGE ]]; then
+  BUMP_TYPE="major"
+elif [[ "$STRIPPED_MSG" =~ ^feat: ]]; then
+  BUMP_TYPE="minor"
+elif [[ "$STRIPPED_MSG" =~ ^fix: ]]; then
+  BUMP_TYPE="patch"
+else
+  # No version bump for other commit types (chore, docs, refactor, test, etc.)
+  exit 0
+fi
+
+# Bump package.json version
+OLD_VERSION=$(node -p "require('./package.json').version")
+npm version $BUMP_TYPE --no-git-tag-version > /dev/null 2>&1
+NEW_VERSION=$(node -p "require('./package.json').version")
+
+# Update CHANGELOG.md
+DATE=$(date +%Y-%m-%d)
+CHANGELOG="CHANGELOG.md"
+
+# Create CHANGELOG if it doesn't exist
+if [ ! -f "$CHANGELOG" ]; then
+  echo "# Changelog" > "$CHANGELOG"
+  echo "" >> "$CHANGELOG"
+  echo "All notable changes to Tandem Browser will be documented in this file." >> "$CHANGELOG"
+  echo "" >> "$CHANGELOG"
+fi
+
+# Insert new version entry at top (after header)
+TEMP_CHANGELOG=$(mktemp)
+{
+  # Keep header
+  head -n 4 "$CHANGELOG"
+  
+  # Add new version
+  echo "## [v$NEW_VERSION] - $DATE"
+  echo ""
+  echo "- $COMMIT_MSG"
+  echo ""
+  
+  # Keep rest
+  tail -n +5 "$CHANGELOG"
+} > "$TEMP_CHANGELOG"
+
+mv "$TEMP_CHANGELOG" "$CHANGELOG"
+
+# Update shell/about.html version
+if [ -f "shell/about.html" ]; then
+  sed -i.bak "s/id=\"version\">v[0-9.]*</id=\"version\">v$NEW_VERSION</" shell/about.html
+  rm -f shell/about.html.bak
+fi
+
+# Stage changes
+git add package.json package-lock.json CHANGELOG.md shell/about.html
+
+# Amend or create new commit?
+# New commit is safer (avoids rewriting history)
+git commit -m "chore: bump to v$NEW_VERSION" --no-verify
+
+echo "✅ Version bumped: v$OLD_VERSION → v$NEW_VERSION ($BUMP_TYPE)"

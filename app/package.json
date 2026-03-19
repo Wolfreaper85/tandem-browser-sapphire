@@ -1,0 +1,102 @@
+{
+  "name": "tandem-browser",
+  "version": "0.62.17-sapphire",
+  "description": "First-party OpenClaw companion browser for human-AI collaboration with built-in security controls",
+  "main": "dist/main.js",
+  "author": "Tandem Browser contributors",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hydro13/tandem-browser.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hydro13/tandem-browser/issues"
+  },
+  "homepage": "https://github.com/hydro13/tandem-browser",
+  "keywords": [
+    "browser",
+    "electron",
+    "ai",
+    "automation",
+    "security",
+    "local-first"
+  ],
+  "scripts": {
+    "dev": "tsc && npx electron .",
+    "start": "xattr -cr node_modules/electron/dist/Electron.app 2>/dev/null; npm run compile && node scripts/run-electron.js",
+    "compile": "tsc",
+    "watch": "tsc -w",
+    "build": "tsc && electron-builder",
+    "mcp": "node dist/mcp/server.js",
+    "postinstall": "electron-rebuild -f -w better-sqlite3",
+    "rebuild": "electron-rebuild -f -w better-sqlite3",
+    "verify": "npm run compile && npm run lint && npm test",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:security": "vitest run src/security/tests/",
+    "test:extensions": "vitest run src/extensions/tests/",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "@types/adm-zip": "^0.5.7",
+    "acorn": "^8.16.0",
+    "adm-zip": "^0.5.16",
+    "better-sqlite3": "^12.6.2",
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "ffmpeg-static": "^5.3.0",
+    "turndown": "^7.2.2",
+    "ws": "^8.19.0"
+  },
+  "//": "Liquid Glass Lite — uncomment when package is ready",
+  "// dependencies-future": {
+    "@mblock/liquid-glass": "file:../liquid-glass-lite/packages/core"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.1",
+    "@eslint/js": "^10.0.1",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/supertest": "^7.2.0",
+    "@types/turndown": "^5.0.6",
+    "@types/ws": "^8.18.1",
+    "electron": "^40.6.0",
+    "electron-builder": "^26.0.0",
+    "eslint": "^10.0.3",
+    "supertest": "^7.2.2",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.56.1",
+    "vitest": "^4.0.18"
+  },
+  "overrides": {
+    "yauzl": "3.2.1"
+  },
+  "productName": "Tandem Browser",
+  "build": {
+    "appId": "com.tandem.browser",
+    "artifactName": "tandem-browser-${version}-${arch}.${ext}",
+    "files": [
+      "dist/**/*",
+      "shell/**/*",
+      "node_modules/**/*"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "linux": {
+      "category": "Utility"
+    }
+  }
+}

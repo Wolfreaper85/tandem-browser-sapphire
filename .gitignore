@@ -1,0 +1,23 @@
+# Dependencies
+app/node_modules/
+
+# Build output (can be regenerated with npm run compile)
+app/dist/
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE
+.vscode/
+.idea/
+
+# Electron build output
+app/release/
+
+# Local config (user-specific)
+app/package-lock.json
+
+# Logs
+*.log

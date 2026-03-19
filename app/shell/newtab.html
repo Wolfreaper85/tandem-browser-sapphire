@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Tab</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #1a1a2e;
+      --surface: #16213e;
+      --surface-hover: #1a2744;
+      --text: #eee;
+      --text-dim: #888;
+      --text-muted: #555;
+      --accent: #e94560;
+      --border: #0f3460;
+      --links-title: #6f7692;
+      --links-action-border: #28416d;
+      --links-action-bg: rgba(22, 33, 62, 0.88);
+      --links-action-color: #c8cfdf;
+    }
+
+    [data-theme="light"] {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --surface-hover: #f1f5f9;
+      --text: #1e293b;
+      --text-dim: #64748b;
+      --text-muted: #94a3b8;
+      --accent: #e94560;
+      --border: rgba(0,0,0,0.08);
+      --links-title: #94a3b8;
+      --links-action-border: rgba(0,0,0,0.12);
+      --links-action-bg: rgba(255,255,255,0.9);
+      --links-action-color: #475569;
+    }
+
+    @media (prefers-color-scheme: light) {
+      [data-theme="system"] {
+        --bg: #f8fafc;
+        --surface: #ffffff;
+        --surface-hover: #f1f5f9;
+        --text: #1e293b;
+        --text-dim: #64748b;
+        --text-muted: #94a3b8;
+        --accent: #e94560;
+        --border: rgba(0,0,0,0.08);
+        --links-title: #94a3b8;
+        --links-action-border: rgba(0,0,0,0.12);
+        --links-action-bg: rgba(255,255,255,0.9);
+        --links-action-color: #475569;
+      }
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      padding: 0.5vh 20px 40px;
+    }
+
+    .logo-wrap {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 32px;
+    }
+
+    .logo-bg {
+      width: 700px;
+      height: auto;
+      opacity: 0.45;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .logo {
+      font-size: 48px;
+      font-weight: 700;
+      margin-top: -45px;
+      letter-spacing: -1px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .logo span { color: #e94560; }
+
+    .subtitle {
+      color: var(--text-dim);
+      font-size: 14px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .search-box {
+      width: 100%;
+      max-width: 560px;
+      position: relative;
+      margin-bottom: 40px;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 14px 20px;
+      padding-left: 44px;
+      font-size: 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-box input:focus {
+      border-color: var(--accent);
+    }
+
+    .search-box input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 18px;
+      pointer-events: none;
+    }
+
+    .quick-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      justify-content: center;
+      max-width: 560px;
+      margin-bottom: 48px;
+    }
+
+    .quick-links-wrap {
+      width: 100%;
+      max-width: 560px;
+      margin-bottom: 48px;
+    }
+
+    .quick-links-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .quick-links-title {
+      font-size: 12px;
+      color: var(--links-title);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .quick-links-action {
+      border: 1px solid var(--links-action-border);
+      background: var(--links-action-bg);
+      color: var(--links-action-color);
+      border-radius: 999px;
+      padding: 7px 12px;
+      font-size: 12px;
+      line-height: 1;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s, transform 0.2s;
+    }
+
+    .quick-links-action:hover {
+      color: var(--text);
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+
+    .quick-link {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+      color: var(--text-dim);
+      font-size: 11px;
+      width: 72px;
+      transition: color 0.2s;
+    }
+
+    .quick-link:hover { color: var(--text); }
+
+    .quick-link .icon {
+      width: 48px;
+      height: 48px;
+      background: var(--surface);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      transition: background 0.2s;
+    }
+
+    .quick-link:hover .icon {
+      background: var(--surface-hover);
+    }
+
+    .quick-link img {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+    }
+
+    .quick-link-fallback {
+      width: 24px;
+      height: 24px;
+      border-radius: 7px;
+      background: rgba(233, 69, 96, 0.16);
+      color: #f2b1bc;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .quick-links-empty {
+      color: var(--text-muted);
+      font-size: 13px;
+      padding: 12px 0;
+      text-align: center;
+      width: 100%;
+    }
+
+    .recent-section {
+      width: 100%;
+      max-width: 560px;
+    }
+
+    .recent-section h3 {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+
+    .recent-tabs {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .recent-tab {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      background: var(--surface);
+      border-radius: 8px;
+      text-decoration: none;
+      color: var(--text-dim);
+      font-size: 13px;
+      transition: background 0.2s;
+    }
+
+    .recent-tab:hover { background: var(--surface-hover); color: var(--text); }
+
+    .recent-tab img {
+      width: 16px;
+      height: 16px;
+      border-radius: 2px;
+    }
+
+    .recent-tab .url {
+      color: var(--text-muted);
+      font-size: 11px;
+      margin-left: auto;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <script src="js/api-auth.js"></script>
+  <div class="logo-wrap">
+    <img class="logo-bg" src="tandem-bike.png" alt="">
+    <div class="logo"><span>T</span>andem</div>
+    <div class="subtitle">Co-Pilot Browser</div>
+  </div>
+
+  <div class="search-box">
+    <span class="search-icon">&#x1F50D;</span>
+    <input type="text" id="search" placeholder="Search or type a URL..." autofocus>
+  </div>
+
+  <div class="quick-links-wrap">
+    <div class="quick-links-header">
+      <div class="quick-links-title">Quick links</div>
+      <button type="button" class="quick-links-action" id="edit-quick-links">Edit Quick Links</button>
+    </div>
+
+    <div class="quick-links" id="quick-links">
+      <div class="quick-links-empty">Loading shortcuts...</div>
+    </div>
+  </div>
+
+  <div class="recent-section">
+    <h3>Recent tabs</h3>
+    <div class="recent-tabs" id="recent-tabs">
+      <div style="color: var(--text-muted); font-size: 13px; padding: 8px;">Loading...</div>
+    </div>
+  </div>
+
+  <script>
+    const API = 'http://localhost:8765';
+    const searchInput = document.getElementById('search');
+    const quickLinksContainer = document.getElementById('quick-links');
+    const editQuickLinksButton = document.getElementById('edit-quick-links');
+    const fallbackQuickLinks = [
+      { label: 'DuckDuckGo', url: 'https://duckduckgo.com' },
+      { label: 'Google', url: 'https://google.com' },
+      { label: 'GitHub', url: 'https://github.com/hydro13' },
+      { label: 'X', url: 'https://x.com/Robin_waslander' },
+      { label: 'LinkedIn', url: 'https://linkedin.com/in/robinwaslander' },
+      { label: 'YouTube', url: 'https://youtube.com' },
+    ];
+
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const q = searchInput.value.trim();
+        if (!q) return;
+
+        // If it looks like a URL, navigate directly
+        if (/^https?:\/\//i.test(q) || /^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}/.test(q)) {
+          const parsedUrl = parseSafeNavigationUrl(q.startsWith('http') ? q : 'https://' + q);
+          if (parsedUrl) {
+            window.location.assign(parsedUrl.href);
+            return;
+          }
+        } else {
+          // Search with DuckDuckGo
+          window.location.assign('https://duckduckgo.com/?q=' + encodeURIComponent(q));
+          return;
+        }
+
+        window.location.assign('https://duckduckgo.com/?q=' + encodeURIComponent(q));
+      }
+    });
+
+    function createQuickLinkFallback(label) {
+      const fallback = document.createElement('span');
+      fallback.className = 'quick-link-fallback';
+      fallback.textContent = (label || '?').trim().slice(0, 2).toUpperCase();
+      return fallback;
+    }
+
+    function getFaviconUrl(rawUrl) {
+      try {
+        const hostname = new URL(rawUrl).hostname;
+        return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostname)}&sz=64`;
+      } catch {
+        return '';
+      }
+    }
+
+    function parseSafeNavigationUrl(rawUrl) {
+      try {
+        const parsed = new URL(rawUrl, window.location.href);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          return null;
+        }
+        return parsed;
+      } catch {
+        return null;
+      }
+    }
+
+    function buildEmptyState(className, text) {
+      const el = document.createElement('div');
+      el.className = className;
+      el.textContent = text;
+      return el;
+    }
+
+    function renderQuickLinks(links) {
+      quickLinksContainer.replaceChildren();
+
+      if (!Array.isArray(links) || links.length === 0) {
+        quickLinksContainer.appendChild(buildEmptyState('quick-links-empty', 'No quick links configured'));
+        return;
+      }
+
+      for (const link of links) {
+        if (!link || !link.label || !link.url) continue;
+        const parsedUrl = parseSafeNavigationUrl(link.url);
+        if (!parsedUrl) continue;
+
+        const anchor = document.createElement('a');
+        anchor.className = 'quick-link';
+        anchor.href = parsedUrl.toString();
+
+        const iconWrap = document.createElement('div');
+        iconWrap.className = 'icon';
+
+        const faviconUrl = getFaviconUrl(parsedUrl.toString());
+        if (faviconUrl) {
+          const img = document.createElement('img');
+          img.src = faviconUrl;
+          img.alt = link.label;
+          img.addEventListener('error', () => {
+            iconWrap.replaceChildren(createQuickLinkFallback(link.label));
+          }, { once: true });
+          iconWrap.appendChild(img);
+        } else {
+          iconWrap.appendChild(createQuickLinkFallback(link.label));
+        }
+
+        const label = document.createElement('span');
+        label.textContent = link.label;
+
+        anchor.appendChild(iconWrap);
+        anchor.appendChild(label);
+        quickLinksContainer.appendChild(anchor);
+      }
+
+      if (!quickLinksContainer.children.length) {
+        quickLinksContainer.appendChild(buildEmptyState('quick-links-empty', 'No quick links configured'));
+      }
+    }
+
+    async function loadQuickLinks() {
+      try {
+        const res = await fetch(`${API}/config`);
+        if (!res.ok) throw new Error('config load failed');
+        const config = await res.json();
+        renderQuickLinks(config.general?.quickLinks || []);
+      } catch {
+        renderQuickLinks(fallbackQuickLinks);
+      }
+    }
+
+    window.addEventListener('tandem-quick-links-changed', () => {
+      void loadQuickLinks();
+    });
+
+    editQuickLinksButton.addEventListener('click', () => {
+      window.location.href = 'settings.html#general';
+    });
+
+    // Load recent tabs from API
+    async function loadRecentTabs() {
+      const container = document.getElementById('recent-tabs');
+      try {
+        const res = await fetch(`${API}/tabs/list`);
+        const data = await res.json();
+
+        container.replaceChildren();
+
+        if (data.tabs && data.tabs.length > 0) {
+          const recentTabs = data.tabs
+            .filter(t => typeof t?.url === 'string' && !t.url.includes('newtab.html'))
+            .slice(0, 5);
+
+          for (const tab of recentTabs) {
+            const parsedUrl = parseSafeNavigationUrl(tab.url);
+            if (!parsedUrl) continue;
+
+            const anchor = document.createElement('a');
+            anchor.className = 'recent-tab';
+            anchor.href = parsedUrl.toString();
+
+            const img = document.createElement('img');
+            img.src = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(parsedUrl.hostname)}&sz=32`;
+            img.alt = '';
+
+            const title = document.createElement('span');
+            title.textContent = tab.title || parsedUrl.toString();
+
+            const hostname = document.createElement('span');
+            hostname.className = 'url';
+            hostname.textContent = parsedUrl.hostname;
+
+            anchor.appendChild(img);
+            anchor.appendChild(title);
+            anchor.appendChild(hostname);
+            container.appendChild(anchor);
+          }
+
+          if (!container.children.length) {
+            container.appendChild(buildEmptyState('', 'No recent tabs'));
+          }
+        } else {
+          container.appendChild(buildEmptyState('', 'No recent tabs'));
+        }
+      } catch {
+        container.replaceChildren(buildEmptyState('', 'No recent tabs'));
+      }
+    }
+
+    loadQuickLinks();
+    loadRecentTabs();
+
+    // Theme sync — load from config + listen for changes
+    function applyTheme(theme) {
+      if (theme === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+      } else if (theme === 'system') {
+        document.documentElement.setAttribute('data-theme', 'system');
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+      }
+    }
+
+    async function loadTheme() {
+      try {
+        const res = await fetch(`${API}/config`);
+        if (res.ok) {
+          const config = await res.json();
+          applyTheme(config.appearance?.theme || config.theme || 'dark');
+        }
+      } catch {}
+    }
+
+    loadTheme();
+
+    try {
+      const themeBc = new BroadcastChannel('tandem-theme');
+      themeBc.onmessage = (e) => { if (e.data?.theme) applyTheme(e.data.theme); };
+    } catch {}
+  </script>
+</body>
+</html>

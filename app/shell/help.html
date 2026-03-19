@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tandem — Help & Features</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    :root {
+      --bg: #1a1a2e;
+      --surface: #16213e;
+      --surface2: #1c2a4a;
+      --accent: #e94560;
+      --text: #eee;
+      --text-dim: #888;
+      --input-bg: #0f3460;
+      --success: #4ecca3;
+      --warning: #f0a500;
+      --border: rgba(255,255,255,0.08);
+      --code-bg: #0f1419;
+    }
+
+    [data-theme="light"] {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --surface2: #f1f5f9;
+      --accent: #e94560;
+      --text: #1e293b;
+      --text-dim: #64748b;
+      --input-bg: #f1f5f9;
+      --success: #059669;
+      --warning: #d97706;
+      --border: rgba(0,0,0,0.08);
+      --code-bg: #f1f5f9;
+    }
+
+    @media (prefers-color-scheme: light) {
+      [data-theme="system"] {
+        --bg: #f8fafc;
+        --surface: #ffffff;
+        --surface2: #f1f5f9;
+        --accent: #e94560;
+        --text: #1e293b;
+        --text-dim: #64748b;
+        --input-bg: #f1f5f9;
+        --success: #059669;
+        --warning: #d97706;
+        --border: rgba(0,0,0,0.08);
+        --code-bg: #f1f5f9;
+      }
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-y: auto;
+    }
+
+    .help-header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 32px 40px;
+      text-align: center;
+    }
+    .help-header h1 { 
+      font-size: 32px; 
+      font-weight: 700; 
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, var(--text) 0%, var(--accent) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .help-header .subtitle { 
+      font-size: 18px; 
+      color: var(--text-dim); 
+    }
+
+    .help-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 40px;
+    }
+
+    .help-nav {
+      position: sticky;
+      top: 40px;
+      align-self: start;
+    }
+    .help-nav ul {
+      list-style: none;
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 20px 0;
+    }
+    .help-nav a {
+      display: block;
+      color: var(--text-dim);
+      text-decoration: none;
+      padding: 12px 20px;
+      border-left: 3px solid transparent;
+      transition: all 0.2s ease;
+    }
+    .help-nav a:hover,
+    .help-nav a.active {
+      color: var(--text);
+      background: var(--surface2);
+      border-left-color: var(--accent);
+    }
+
+    .help-content {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 32px;
+    }
+
+    .section {
+      margin-bottom: 48px;
+    }
+    .section:last-child { margin-bottom: 0; }
+
+    h2 {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: var(--accent);
+    }
+    h3 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+
+    p { margin-bottom: 16px; }
+    
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      margin-bottom: 32px;
+    }
+
+    .feature-card {
+      background: var(--surface2);
+      border-radius: 8px;
+      padding: 20px;
+      border-left: 4px solid var(--accent);
+    }
+    .feature-card h4 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+    .feature-card p {
+      color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+
+    .shortcut {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--code-bg);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+      font-size: 12px;
+      color: var(--success);
+      margin: 2px;
+    }
+
+    .shortcuts-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    .shortcut-group {
+      background: var(--surface2);
+      padding: 16px;
+      border-radius: 8px;
+    }
+    .shortcut-group h5 {
+      color: var(--accent);
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .shortcut-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .shortcut-item:last-child { border-bottom: none; }
+    .shortcut-desc {
+      color: var(--text-dim);
+      font-size: 13px;
+    }
+
+    .tip-box {
+      background: linear-gradient(135deg, var(--success)20, var(--success)05);
+      border: 1px solid var(--success)40;
+      border-radius: 8px;
+      padding: 16px;
+      margin: 20px 0;
+    }
+    .tip-box strong {
+      color: var(--success);
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .keyboard-shortcut-btn {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 56px;
+      height: 56px;
+      font-size: 20px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(233, 69, 96, 0.3);
+      transition: all 0.2s ease;
+      z-index: 1000;
+    }
+    .keyboard-shortcut-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 16px rgba(233, 69, 96, 0.4);
+    }
+  </style>
+</head>
+<body>
+  <div class="help-header">
+    <h1>🚲 Tandem Browser</h1>
+    <p class="subtitle">First-party OpenClaw companion browser — public developer preview</p>
+  </div>
+
+  <div class="help-container">
+    <nav class="help-nav">
+      <ul>
+        <li><a href="#overview" class="nav-link active">Overview</a></li>
+        <li><a href="#shortcuts">Shortcuts</a></li>
+        <li><a href="#wingman">Wingman Panel</a></li>
+        <li><a href="#drawing">Drawing & Annotation</a></li>
+        <li><a href="#voice">Voice Input</a></li>
+        <li><a href="#tabs">Tabs & Groups</a></li>
+        <li><a href="#memory">Memory & Data</a></li>
+        <li><a href="#stealth">Stealth & Privacy</a></li>
+        <li><a href="#tips">Tips & Tricks</a></li>
+      </ul>
+    </nav>
+
+    <main class="help-content">
+      <section id="overview" class="section">
+        <h2>What is Tandem Browser?</h2>
+        <p>Tandem Browser is a browser built specifically for collaboration with OpenClaw. While you browse normally, Wingman can watch along, help, and perform actions through Tandem's local browser API while staying outside the page context.</p>
+        <p>Tandem is maintained in the same ecosystem as OpenClaw and should be understood as a first-party companion browser, not a gimmick integration or a generic browser shell with chat bolted on later.</p>
+        
+        <div class="feature-grid">
+          <div class="feature-card">
+            <h4>🤖 Wingman Panel</h4>
+            <p>Your AI assistant has its own panel where it can chat, track activities, and view screenshots.</p>
+          </div>
+          
+          <div class="feature-card">
+            <h4>🖍️ Drawing & Annotation</h4>
+            <p>Draw directly on web pages to highlight important elements for Wingman.</p>
+          </div>
+          
+          <div class="feature-card">
+            <h4>🎙️ Voice Input</h4>
+            <p>Talk to Wingman via voice input — faster than typing!</p>
+          </div>
+          
+          <div class="feature-card">
+            <h4>🛡️ Stealth Browsing</h4>
+            <p>Advanced anti-detection ensures websites cannot distinguish Tandem from real Chrome.</p>
+          </div>
+          
+          <div class="feature-card">
+            <h4>💾 Smart Memory</h4>
+            <p>Tandem remembers all websites you visit and can detect patterns and changes.</p>
+          </div>
+          
+          <div class="feature-card">
+            <h4>📸 Screenshots & PiP</h4>
+            <p>Take screenshots with annotations and use Picture-in-Picture mode for always-visible overview.</p>
+          </div>
+        </div>
+
+        <div class="tip-box">
+          <strong>💡 Pro Tip</strong>
+          Press <span class="shortcut">Cmd+?</span> to open the shortcuts overlay — the fastest way to learn Tandem!
+        </div>
+      </section>
+
+      <section id="shortcuts" class="section">
+        <h2>All Shortcuts</h2>
+        <p>Tandem has many useful shortcuts for efficient browsing. Grouped by function:</p>
+        
+        <div class="shortcuts-list">
+          <div class="shortcut-group">
+            <h5>Navigation</h5>
+            <div class="shortcut-item">
+              <span class="shortcut-desc">New tab</span>
+              <span class="shortcut">Cmd+T</span>
+            </div>
+            <div class="shortcut-item">
+              <span class="shortcut-desc">Close tab</span>
+              <span class="shortcut">Cmd+W</span>
+            </div>
+            <div class="shortcut-item">
+              <span class="shortcut-desc">Go to tab 1-9</span>
+              <span class="shortcut">Cmd+1-9</span>
+            </div>
+            <div class="shortcut-item">
+              <span class="shortcut-desc">History</span>
+              <span class="shortcut">Cmd+Y</span>
+            </div>
+            <div class="shortcut-item">
+              <span class="shortcut-desc">Find on page</span>
+              <span class="shortcut">Cmd+F</span>
+            </div>
+          </div>
+
+          <div class="shortcut-group">
+            <h5>Wingman</h5>
+            <div class="shortcut-item">
+              <span class="shortcut-desc">Wingman panel toggle</span>
+              <span class="shortcut">Cmd+K</span>
+            </div>
+            <div class="shortcut-item">
+              <span class="shortcut-desc">Voice input</span>
+              <span class="shortcut">Cmd+M</span>
+            </div>
+            <div class="shortcut-item">
+              <span class="shortcut-desc">Picture-in-Picture</span>
+              <span class="shortcut">Cmd+P</span>
+            </div>
+          </div>
+
+          <div class="shortcut-group">
+            <h5>Tools</h5>
+            <div class="shortcut-item">
+              <span class="shortcut-desc">Bookmark page</span>
+              <span class="shortcut">Cmd+D</span>
+            </div>
+            <div class="shortcut-item">
+              <span class="shortcut-desc">Drawing mode</span>
+              <span class="shortcut">Cmd+Shift+D</span>
+            </div>
+            <div class="shortcut-item">
+              <span class="shortcut-desc">Screenshot</span>
+              <span class="shortcut">Cmd+Shift+S</span>
+            </div>
+            <div class="shortcut-item">
+              <span class="shortcut-desc">Record audio</span>
+              <span class="shortcut">Cmd+R</span>
+            </div>
+            <div class="shortcut-item">
+              <span class="shortcut-desc">Live captcha/login help</span>
+              <span class="shortcut">Cmd+Shift+C</span>
+            </div>
+          </div>
+
+          <div class="shortcut-group">
+            <h5>Browser</h5>
+            <div class="shortcut-item">
+              <span class="shortcut-desc">Settings</span>
+              <span class="shortcut">Cmd+,</span>
+            </div>
+            <div class="shortcut-item">
+              <span class="shortcut-desc">Help & shortcuts</span>
+              <span class="shortcut">Cmd+?</span>
+            </div>
+            <div class="shortcut-item">
+              <span class="shortcut-desc">Zoom in</span>
+              <span class="shortcut">Cmd+=</span>
+            </div>
+            <div class="shortcut-item">
+              <span class="shortcut-desc">Zoom out</span>
+              <span class="shortcut">Cmd+-</span>
+            </div>
+            <div class="shortcut-item">
+              <span class="shortcut-desc">Reset zoom</span>
+              <span class="shortcut">Cmd+0</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="wingman" class="section">
+        <h2>Wingman Panel — Your AI Assistant</h2>
+        <p>The Wingman panel (<span class="shortcut">Cmd+K</span>) is where your AI assistant lives. It has multiple tabs:</p>
+        
+        <h3>Chat</h3>
+        <p>Chat directly with Wingman via text or voice. It can help with browsing, answer questions, and perform actions.</p>
+        
+        <h3>Activity Log</h3>
+        <p>Wingman follows all your browsing activity in real-time: which pages you visit, what you click, what you type. This helps it understand context.</p>
+        
+        <h3>Screenshots</h3>
+        <p>All screenshots you take are visible here with thumbnails. Click to view the full image.</p>
+        
+        <h3>Memory</h3>
+        <p>Wingman remembers important information about websites you visit — perfect for finding information later.</p>
+
+        <div class="tip-box">
+          <strong>💡 Voice Tip</strong>
+          Hold <span class="shortcut">Cmd+M</span> to talk. Release and Wingman processes your speech automatically!
+        </div>
+      </section>
+
+      <section id="drawing" class="section">
+        <h2>Drawing & Annotation</h2>
+        <p>Press <span class="shortcut">Cmd+Shift+D</span> to toggle drawing mode. You can then draw directly on web pages.</p>
+        
+        <h3>Available Tools</h3>
+        <div class="feature-grid">
+          <div class="feature-card">
+            <h4>✏️ Free Line</h4>
+            <p>Draw freehand shapes, circles, underlines.</p>
+          </div>
+          <div class="feature-card">
+            <h4>🔸 Rectangles</h4>
+            <p>Highlight sections and blocks with rectangles.</p>
+          </div>
+          <div class="feature-card">
+            <h4>⭕ Circles</h4>
+            <p>Highlight specific elements with circles.</p>
+          </div>
+          <div class="feature-card">
+            <h4>📝 Text Labels</h4>
+            <p>Add text notes to your annotations.</p>
+          </div>
+        </div>
+        
+        <p>Choose from different colors: red (default), yellow, green, and blue. Press "📸 Snap for Wingman" to take a screenshot with all your annotations.</p>
+      </section>
+
+      <section id="voice" class="section">
+        <h2>Voice Input</h2>
+        <p>Tandem has built-in speech recognition for Dutch and English input.</p>
+        
+        <h3>How to use</h3>
+        <ol style="padding-left: 20px; color: var(--text-dim);">
+          <li>Press <span class="shortcut">Cmd+M</span> to activate voice input</li>
+          <li>You'll see a red pulsing indicator — start talking</li>
+          <li>Wingman transcribes your speech live in the chat panel</li>
+          <li>After a brief silence the message is sent automatically</li>
+        </ol>
+        
+        <p>Voice input works perfectly with annotations — draw something and explain it via voice!</p>
+      </section>
+
+      <section id="tabs" class="section">
+        <h2>Tabs & Groups</h2>
+        <p>Tandem supports advanced tab management with colors and groups.</p>
+        
+        <h3>Tab Navigation</h3>
+        <p>Use <span class="shortcut">Cmd+1</span> through <span class="shortcut">Cmd+9</span> to quickly switch between tabs. <span class="shortcut">Cmd+T</span> opens a new tab, <span class="shortcut">Cmd+W</span> closes the current tab.</p>
+        
+        <h3>Tab Indicators</h3>
+        <p>Tabs show different indicators:</p>
+        <ul style="padding-left: 20px; color: var(--text-dim); margin-top: 8px;">
+          <li>👤 — Tab controlled by you</li>
+          <li>🤖 — Tab controlled by Wingman (AI)</li>
+          <li>🎵 — Tab is playing audio</li>
+          <li>🔴 — Audio is being recorded</li>
+        </ul>
+      </section>
+
+      <section id="memory" class="section">
+        <h2>Memory & Data</h2>
+        <p>Tandem remembers everything you do to help you better later.</p>
+        
+        <h3>Site Memory</h3>
+        <p>For every website Tandem stores: title, content, forms, links, and changes over time. Search through your browse history via the Memory tab in the Wingman panel.</p>
+        
+        <h3>Form Memory</h3>
+        <p>Tandem remembers which forms you fill in and can auto-fill them later. Sensitive data like passwords is stored encrypted.</p>
+        
+        <h3>Behavioral Learning</h3>
+        <p>Tandem learns your browsing behavior (timing, mouse movements, typing patterns) to mimic more human-like behavior during automated actions.</p>
+      </section>
+
+      <section id="stealth" class="section">
+        <h2>Stealth & Privacy</h2>
+        <p>Tandem is designed to be completely invisible to websites. It looks exactly like a normal Chrome browser.</p>
+        
+        <h3>Anti-Detection Features</h3>
+        <ul style="padding-left: 20px; color: var(--text-dim); margin-top: 8px;">
+          <li>Canvas fingerprint randomization</li>
+          <li>WebGL renderer/vendor spoofing</li>
+          <li>Audio context fingerprint spoofing</li>
+          <li>Timing protection</li>
+          <li>Font enumeration masking</li>
+          <li>Humanized delays and behavior simulation</li>
+        </ul>
+        
+        <div class="tip-box">
+          <strong>🛡️ Privacy</strong>
+          All data stays local on your computer. Tandem NEVER sends data to external servers.
+        </div>
+      </section>
+
+      <section id="tips" class="section">
+        <h2>Tips & Tricks</h2>
+        
+        <h3>Workflow Tips</h3>
+        <div class="feature-grid">
+          <div class="feature-card">
+            <h4>Screenshot + Voice</h4>
+            <p>Take a screenshot with annotations and explain via voice — perfect for complex questions to Wingman.</p>
+          </div>
+          <div class="feature-card">
+            <h4>PiP Monitoring</h4>
+            <p>Use <span class="shortcut">Cmd+P</span> for Picture-in-Picture to monitor Wingman's activity while you do other work.</p>
+          </div>
+          <div class="feature-card">
+            <h4>Tab Groups</h4>
+            <p>Organize related tabs by color — blue for work, green for research, etc.</p>
+          </div>
+          <div class="feature-card">
+            <h4>Form Memory</h4>
+            <p>Let Tandem remember forms so Wingman can auto-fill them later.</p>
+          </div>
+        </div>
+        
+        <h3>Advanced Features</h3>
+        <p>Tandem has many advanced features not visible in the UI:</p>
+        <ul style="padding-left: 20px; color: var(--text-dim); margin-top: 8px;">
+          <li><strong>Headless Browsing:</strong> Wingman can invisibly visit websites</li>
+          <li><strong>Scheduled Watches:</strong> Automatically monitor websites for changes</li>
+          <li><strong>Network Inspector:</strong> API discovery and request monitoring</li>
+          <li><strong>Extension Support:</strong> Load Chrome extensions</li>
+          <li><strong>Audio Capture:</strong> Record tab audio for later</li>
+        </ul>
+      </section>
+    </main>
+  </div>
+
+  <button class="keyboard-shortcut-btn" onclick="showShortcutsOverlay()" title="Shortcuts (Cmd+?)">⌨️</button>
+
+  <script>
+    // Navigation highlighting
+    const sections = document.querySelectorAll('.section');
+    const navLinks = document.querySelectorAll('.nav-link');
+    
+    function highlightCurrentSection() {
+      const scrollY = window.scrollY + 100;
+      
+      sections.forEach((section, index) => {
+        const sectionTop = section.offsetTop;
+        const sectionHeight = section.offsetHeight;
+        
+        if (scrollY >= sectionTop && scrollY < sectionTop + sectionHeight) {
+          navLinks.forEach(link => link.classList.remove('active'));
+          navLinks[index].classList.add('active');
+        }
+      });
+    }
+    
+    window.addEventListener('scroll', highlightCurrentSection);
+    
+    // Smooth scroll for navigation
+    navLinks.forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const targetId = link.getAttribute('href').substring(1);
+        const targetSection = document.getElementById(targetId);
+        targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+    
+    // Shortcuts overlay trigger
+    function showShortcutsOverlay() {
+      // Send message to main process to show shortcuts overlay
+      if (window.electronAPI) {
+        window.electronAPI.showShortcutsOverlay();
+      }
+    }
+    
+    // Handle Cmd+? shortcut if pressed on this page
+    document.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === '?') {
+        e.preventDefault();
+        showShortcutsOverlay();
+      }
+    });
+
+    // Theme sync
+    function applyTheme(theme) {
+      if (theme === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+      } else if (theme === 'system') {
+        document.documentElement.setAttribute('data-theme', 'system');
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+      }
+    }
+
+    fetch('http://localhost:8765/config').then(r => r.json()).then(c => {
+      applyTheme(c.appearance?.theme || c.theme || 'dark');
+    }).catch(() => {});
+
+    try {
+      const bc = new BroadcastChannel('tandem-theme');
+      bc.onmessage = (e) => { if (e.data?.theme) applyTheme(e.data.theme); };
+    } catch {}
+  </script>
+</body>
+</html>

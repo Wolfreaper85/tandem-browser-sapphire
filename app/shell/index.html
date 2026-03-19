@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="nl">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tandem Browser</title>
+  <link rel="stylesheet" href="css/main.css">
+</head>
+
+<body>
+  <div class="region-capture-overlay" id="region-capture-overlay">
+    <div class="region-capture-hint">Drag to capture a region inside Tandem. Press Esc to cancel.</div>
+    <div class="region-capture-box" id="region-capture-box"></div>
+  </div>
+
+  <!-- Recording overlay bar -->
+  <div id="recording-overlay-bar" class="recording-overlay-bar">
+    <span class="recording-dot"></span>
+    <span id="recording-timer" class="recording-timer">0:00</span>
+    <button id="recording-mic-toggle" class="recording-mic-btn" title="Toggle microphone">🎤 On</button>
+    <div class="recording-separator"></div>
+    <button id="recording-stop-btn" class="recording-stop-btn" title="Stop recording (Esc)">■ Stop</button>
+  </div>
+
+  <!-- Tab bar (Chrome-style compact title bar) -->
+  <div class="tab-bar" id="tab-bar">
+    <button class="menu-btn" id="btn-app-menu" title="Menu">☰</button>
+    <!-- Tabs will be inserted here dynamically -->
+    <button class="tab-new-btn" id="btn-new-tab" title="New tab (Cmd+T)">+</button>
+    <div class="tab-bar-spacer"></div>
+
+    <!-- Window controls (Linux/Windows only) -->
+    <div class="window-controls">
+      <button class="window-control-btn minimize" id="btn-window-minimize" title="Minimize">
+        <svg viewBox="0 0 10 1">
+          <path d="M0,0 L10,0 L10,1 L0,1 Z" />
+        </svg>
+      </button>
+      <button class="window-control-btn maximize" id="btn-window-maximize" title="Maximize">
+        <svg viewBox="0 0 10 10">
+          <path d="M0,0 L10,0 L10,10 L0,10 Z M1,1 L1,9 L9,9 L9,1 Z" />
+        </svg>
+      </button>
+      <button class="window-control-btn close" id="btn-window-close" title="Close">
+        <svg viewBox="0 0 10 10">
+          <path d="M0,0 L10,10 M10,0 L0,10" stroke="currentColor" stroke-width="1.5" />
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Navigation toolbar -->
+  <div class="toolbar">
+    <button id="btn-back" title="Terug">←</button>
+    <button id="btn-forward" title="Vooruit">→</button>
+    <button id="btn-reload" title="Herladen">⟳</button>
+    <input class="url-bar" id="url-bar" type="text" placeholder="Search or enter URL..." value="">
+    <button class="bookmark-star" id="btn-bookmark" title="Bookmark (⌘D)">☆</button>
+    <button id="btn-screenshot" title="Screenshot (⌘⇧S)">📸</button>
+    <!-- Extension toolbar (Phase 5b) -->
+    <div class="ext-toolbar" id="ext-toolbar">
+      <!-- Extension buttons rendered dynamically by JS -->
+      <button class="ext-overflow-btn" id="ext-overflow-btn" title="Extensions" style="display:none;">🧩</button>
+      <div class="ext-overflow-dropdown" id="ext-overflow-dropdown"></div>
+    </div>
+    <div class="status-dot" id="status-dot" title="Connected to Wingman API"></div>
+    <span class="wingman-badge">🤖 Wingman</span>
+  </div>
+
+  <!-- Bookmarks bar -->
+  <div class="bookmarks-bar" id="bookmarks-bar"></div>
+
+  <!-- Bookmark star popup (Chrome-style) -->
+  <div class="bookmark-popup" id="bookmark-popup" style="display:none;">
+    <div class="bookmark-popup-title">Bookmark</div>
+    <label class="bookmark-popup-label">Name
+      <input type="text" id="bookmark-popup-name" class="bookmark-popup-input" placeholder="Page title">
+    </label>
+    <label class="bookmark-popup-label">Folder
+      <select id="bookmark-popup-folder" class="bookmark-popup-select"></select>
+    </label>
+    <div class="bookmark-popup-actions">
+      <button id="bookmark-popup-delete" class="bookmark-popup-btn danger" style="display:none;">Remove</button>
+      <span class="bookmark-popup-spacer"></span>
+      <button id="bookmark-popup-cancel" class="bookmark-popup-btn">Cancel</button>
+      <button id="bookmark-popup-save" class="bookmark-popup-btn primary">Save</button>
+    </div>
+  </div>
+
+  <!-- Main layout: browser + panel -->
+  <div class="main-layout">
+
+    <!-- ═══ SIDEBAR ═══ (SHELL layer, NOT in webview) -->
+    <div class="sidebar" id="sidebar" data-state="narrow">
+
+      <!-- Icon strip (always visible in narrow/wide) -->
+      <div class="sidebar-strip" id="sidebar-strip">
+        <!-- Items are generated dynamically by JS -->
+        <div class="sidebar-items" id="sidebar-items"></div>
+
+        <!-- Footer: narrow/wide toggle + customize -->
+        <div class="sidebar-footer">
+          <button class="sidebar-footer-btn" id="sidebar-toggle-width" title="Expand">›</button>
+          <button class="sidebar-footer-btn" id="sidebar-customize" title="Customize">⚙</button>
+          <button class="sidebar-footer-btn" id="sidebar-tips" title="Tips &amp; Tutorials">💡</button>
+        </div>
+      </div>
+
+      <!-- Panel container (expandable next to the icon strip) -->
+      <div class="sidebar-panel" id="sidebar-panel">
+        <div class="sidebar-panel-header">
+          <span class="sidebar-panel-title" id="sidebar-panel-title"></span>
+          <div style="display:flex;align-items:center;gap:2px;">
+            <button class="sidebar-panel-reload" id="sidebar-panel-reload" title="Reload">↺</button>
+            <button class="sidebar-panel-pin" id="sidebar-panel-pin" title="Pin panel">📌</button>
+            <button class="sidebar-panel-close" id="sidebar-panel-close" title="Close">✕</button>
+          </div>
+        </div>
+        <div class="sidebar-panel-content" id="sidebar-panel-content">
+          <!-- Content rendered by the active item (Phase 3+) -->
+        </div>
+        <div class="sidebar-panel-resize" id="sidebar-panel-resize"></div>
+      </div>
+
+    </div>
+
+    <!-- Webview container -->
+    <div class="browser-content" id="webview-container">
+      <!-- Find in page bar -->
+      <div class="find-bar" id="find-bar">
+        <input type="text" id="find-input" placeholder="Find on page...">
+        <span class="find-count" id="find-count"></span>
+        <button id="find-prev" title="Previous">▲</button>
+        <button id="find-next" title="Next">▼</button>
+        <button id="find-close" title="Close (Esc)">✕</button>
+      </div>
+      <!-- Draw overlay canvas (SHELL layer, NOT in webview — anti-detect!) -->
+      <canvas class="draw-overlay" id="draw-canvas"></canvas>
+      <!-- Draw toolbar -->
+      <div class="draw-toolbar" id="draw-toolbar">
+        <button data-tool="arrow" title="Arrow">↗</button>
+        <button data-tool="rect" title="Rectangle">▢</button>
+        <button data-tool="circle" title="Circle">◯</button>
+        <button data-tool="line" title="Freehand" class="active">✎</button>
+        <button data-tool="text" title="Text">T</button>
+        <div class="separator"></div>
+        <button class="color-btn active" data-color="#e94560" style="background:#e94560" title="Red"></button>
+        <button class="color-btn" data-color="#f0a500" style="background:#f0a500" title="Yellow"></button>
+        <button class="color-btn" data-color="#4ecca3" style="background:#4ecca3" title="Green"></button>
+        <button class="color-btn" data-color="#4285f4" style="background:#4285f4" title="Blue"></button>
+        <div class="separator"></div>
+        <button id="btn-draw-clear" title="Clear">🗑</button>
+        <button id="btn-snap-wingman" title="📸 Snap for Wingman">📸</button>
+      </div>
+    </div>
+
+    <!-- Voice Input Indicator -->
+    <div class="voice-indicator-overlay" id="voice-indicator">
+      <div class="voice-pulse"></div>
+      <div class="voice-text">
+        <div class="voice-status">🎙️ Listening...</div>
+        <div class="voice-live-text" id="voice-live-text"></div>
+      </div>
+    </div>
+
+    <!-- Onboarding Overlay -->
+    <div class="onboarding-overlay" id="onboarding-overlay">
+      <div class="onboarding-content">
+        <div class="onboarding-step" id="onboarding-step-1">
+          <h2>👋 Welcome to Tandem Browser</h2>
+          <p>You + Wingman = browse together. You drive, Wingman watches and helps.</p>
+          <div class="onboarding-feature">
+            <span class="onboarding-icon">⌘K</span>
+            <span>Open Wingman Panel</span>
+          </div>
+        </div>
+
+        <div class="onboarding-step" id="onboarding-step-2" style="display:none;">
+          <h2>📸 Screenshots & Annotations</h2>
+          <p>Draw on the page and take screenshots for Wingman.</p>
+          <div class="onboarding-feature">
+            <span class="onboarding-icon">⌘⇧D</span>
+            <span>Draw Mode</span>
+          </div>
+          <div class="onboarding-feature">
+            <span class="onboarding-icon">⌘⇧S</span>
+            <span>Screenshot</span>
+          </div>
+        </div>
+
+        <div class="onboarding-step" id="onboarding-step-3" style="display:none;">
+          <h2>🎙️ Voice Input</h2>
+          <p>Talk to Wingman with your voice.</p>
+          <div class="onboarding-feature">
+            <span class="onboarding-icon">⌘⇧M</span>
+            <span>Start Voice Input</span>
+          </div>
+        </div>
+
+        <div class="onboarding-step" id="onboarding-step-4" style="display:none;">
+          <h2>🚀 Ready to get started!</h2>
+          <p>All shortcuts are in the menu (⌘?) if you need them.</p>
+        </div>
+
+        <div class="onboarding-nav">
+          <button id="onboarding-prev" disabled>Previous</button>
+          <div class="onboarding-dots">
+            <span class="dot active"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+          </div>
+          <button id="onboarding-next">Next</button>
+          <button id="onboarding-skip">Skip</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Password Vault Overlay -->
+    <div class="onboarding-overlay" id="vault-overlay" style="display:none;">
+      <div class="onboarding-content" style="max-width: 400px; padding: 24px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <h2 style="margin:0;">🔒 Password Vault</h2>
+          <button id="vault-close"
+            style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:18px;">✕</button>
+        </div>
+
+        <div id="vault-locked-view">
+          <p style="color:var(--text-dim); font-size:14px; margin-bottom:16px; line-height:1.5;">
+            Master password is required to decrypt your local vault. No data is ever synced to the cloud.
+          </p>
+          <input type="password" id="vault-master-password" placeholder="Master Password"
+            style="width:100%; padding:10px; background:var(--input-bg); border:1px solid rgba(255,255,255,0.1); border-radius:6px; color:var(--text); margin-bottom:12px;" />
+          <button id="vault-unlock-btn"
+            style="width:100%; padding:10px; background:var(--accent); color:white; border:none; border-radius:6px; cursor:pointer;">
+            Unlock Vault
+          </button>
+          <div id="vault-error-msg" style="color:var(--warning); font-size:12px; margin-top:8px; display:none;"></div>
+        </div>
+
+        <div id="vault-unlocked-view" style="display:none; text-align:center;">
+          <div style="font-size:40px; margin-bottom:12px;">🔓</div>
+          <p style="color:var(--success); font-weight:500; margin-bottom:8px;">Vault Unlocked</p>
+          <p style="color:var(--text-dim); font-size:12px; margin-bottom:20px;">
+            You can now autofill and generate passwords using the right-click context menu on any login field.
+          </p>
+          <button id="vault-lock-btn"
+            style="padding:8px 16px; background:rgba(255,255,255,0.1); color:var(--text); border:none; border-radius:6px; cursor:pointer; font-size:13px;">
+            Lock Vault
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Wingman Panel Toggle Button -->
+    <button class="wingman-panel-toggle" id="wingman-panel-toggle" title="Toggle Wingman panel">▶</button>
+    <!-- Wingman Panel (SHELL layer, NOT in webview — anti-detect!) -->
+    <div class="wingman-panel" id="wingman-panel">
+      <div class="panel-header">
+        <h2>🤖 Wingman</h2>
+        <button class="panel-tab" data-panel-tab="activity">Activity</button>
+        <button class="panel-tab active" data-panel-tab="chat">Chat</button>
+        <button class="panel-tab" data-panel-tab="screenshots">📸</button>
+        <!-- ClaroNote tab disabled — decoupled, coming in a later update -->
+        <!-- <button class="panel-tab" data-panel-tab="claronote" title="Voice Notes">🎙️</button> -->
+        <button class="vault-toggle-btn" id="vault-toggle-btn" title="Password Vault"
+          style="background:none;border:none;color:var(--text-dim);font-size:16px;cursor:pointer;margin-left:auto;transition:color 0.15s;">🔒</button>
+        <button class="live-toggle-btn" id="live-toggle-btn" title="Live Mode — Wingman is watching"
+          style="background:none;border:1px solid rgba(255,255,255,0.15);color:var(--text-dim);font-size:12px;cursor:pointer;padding:4px 8px;border-radius:4px;transition:all 0.15s;">👁️</button>
+        <button class="noodrem-btn" id="noodrem-btn" title="Emergency stop — stop all AI activity (Escape)">🛑</button>
+      </div>
+      <div class="panel-body" id="panel-body">
+        <!-- Activity tab -->
+        <div class="panel-content" id="panel-activity" style="display:none;flex-direction:column;flex:1;">
+        </div>
+        <!-- Chat tab — Multi-backend via ChatRouter (Phase 3) -->
+        <div class="panel-content" id="panel-chat"
+          style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;">
+          <div class="chat-backend-selector" id="chat-backend-selector" style="display:none;"></div>
+          <div class="ws-status" id="ws-status"
+            style="display:flex;align-items:center;gap:6px;padding:4px 8px;font-size:10px;color:var(--text-dim);border-bottom:1px solid rgba(255,255,255,0.04);">
+            <span class="ws-dot" id="ws-dot"
+              style="width:7px;height:7px;border-radius:50%;background:var(--accent);"></span>
+            <span id="ws-status-text">Disconnected</span>
+          </div>
+          <div class="approval-container" id="approval-container" style="display:none;"></div>
+          <div class="chat-messages" id="chat-messages"></div>
+          <div class="typing-indicator" id="typing-indicator">
+            <div class="typing-dots"><span></span><span></span><span></span></div>
+            <span>Wingman is typing...</span>
+          </div>
+          <div id="chat-image-preview" class="chat-image-preview" style="display:none;"></div>
+          <div class="chat-input-wrap">
+            <textarea class="chat-input" id="chat-input" placeholder="Message to Wingman..." rows="1"></textarea>
+            <!-- Mic button: shown on Linux only (macOS users use system Fn+Fn dictation) -->
+            <button class="chat-mic-btn" id="chat-mic-btn" title="Voice input" style="display:none">🎤</button>
+            <button class="chat-send-btn" id="chat-send-btn">▶</button>
+          </div>
+        </div>
+        <!-- Screenshots tab -->
+        <div class="panel-content" id="panel-screenshots" style="display:none;flex-direction:column;flex:1;">
+          <div class="screenshot-preview" id="screenshot-list">
+            <p style="font-size:12px;color:var(--text-dim);text-align:center;padding:20px;">No screenshots yet.
+              Use Cmd+D → 📸</p>
+          </div>
+        </div>
+
+        <!-- ClaroNote tab -->
+        <div class="panel-content" id="panel-claronote" style="display:none;flex-direction:column;flex:1;">
+          <!-- Login screen (shown when not authenticated) -->
+          <div class="claronote-login" id="claronote-login" style="display:none;">
+            <div style="padding:20px;text-align:center;">
+              <h3 style="margin-bottom:15px;color:var(--text);">🎙️ ClaroNote</h3>
+              <p style="font-size:12px;color:var(--text-dim);margin-bottom:20px;">Log in with your ClaroNote account</p>
+
+              <form id="claronote-login-form" style="display:flex;flex-direction:column;gap:12px;">
+                <input type="email" id="claronote-email" placeholder="Email" required
+                  style="background:var(--input-bg);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px;color:var(--text);font-size:12px;" />
+                <input type="password" id="claronote-password" placeholder="Password" required
+                  style="background:var(--input-bg);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px;color:var(--text);font-size:12px;" />
+                <button type="submit" id="claronote-login-btn"
+                  style="background:var(--accent);border:none;color:#fff;border-radius:8px;padding:10px;cursor:pointer;font-size:12px;transition:opacity 0.15s;">
+                  Log in
+                </button>
+              </form>
+
+              <div class="claronote-error" id="claronote-error"
+                style="display:none;margin-top:10px;color:var(--warning);font-size:11px;"></div>
+            </div>
+          </div>
+
+          <!-- Main interface (shown when authenticated) -->
+          <div class="claronote-main" id="claronote-main" style="display:none;flex:1;flex-direction:column;">
+            <!-- Recording interface -->
+            <div class="claronote-recording" style="padding:15px;border-bottom:1px solid rgba(255,255,255,0.06);">
+              <div class="recording-controls" style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+                <button id="claronote-record-btn"
+                  style="background:var(--accent);border:none;color:#fff;border-radius:50%;width:44px;height:44px;cursor:pointer;font-size:20px;transition:all 0.15s;">
+                  🎙️
+                </button>
+                <div class="recording-status" id="claronote-status">
+                  <div style="font-size:12px;color:var(--text);" id="claronote-status-text">Ready to record</div>
+                  <div style="font-size:10px;color:var(--text-dim);" id="claronote-timer"></div>
+                </div>
+              </div>
+
+              <!-- Waveform visualization placeholder -->
+              <div class="recording-waveform" id="claronote-waveform"
+                style="display:none;height:30px;background:rgba(233,69,96,0.1);border-radius:4px;margin-top:8px;position:relative;overflow:hidden;">
+                <div
+                  style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:10px;color:var(--accent);">
+                  Recording...
+                </div>
+              </div>
+            </div>
+
+            <!-- Notes list -->
+            <div class="claronote-notes" style="flex:1;overflow-y:auto;">
+              <div
+                style="padding:10px 15px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:11px;color:var(--text-dim);display:flex;justify-content:space-between;align-items:center;">
+                <span>Recent notes</span>
+                <button id="claronote-refresh"
+                  style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:10px;padding:2px 6px;border-radius:3px;">
+                  🔄
+                </button>
+              </div>
+              <div id="claronote-notes-list">
+                <p style="font-size:12px;color:var(--text-dim);text-align:center;padding:20px;">Loading...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Panel resize handle -->
+    <div class="panel-resize-handle" id="panel-resize"></div>
+  </div>
+
+  <!-- Wingman alert overlay -->
+  <div class="wingman-overlay" id="wingman-overlay">
+    <button class="dismiss" onclick="dismissAlert()">✕</button>
+    <h3 id="alert-title">🤖 Wingman needs you</h3>
+    <p id="alert-body">...</p>
+  </div>
+
+  <script src="js/api-auth.js"></script>
+
+  <!-- Chat Router + Backends (Phase 3) + DualMode (Phase 5) -->
+  <script src="chat/openclaw-backend.js"></script>
+  <script src="chat/claude-activity-backend.js"></script>
+  <script src="chat/sapphire-backend.js"></script>
+  <script src="chat/router.js"></script>
+  <script src="chat/dual-mode.js"></script>
+
+  <!-- Liquid Glass Lite Integration -->
+  <script src="lgl-integration.js"></script>
+
+  <!-- Sidebar -->
+  <script src="js/sidebar.js"></script>
+
+  <script src="js/tabs.js"></script>
+  <script src="js/window-chrome.js"></script>
+  <script src="js/draw.js"></script>
+  <script src="js/browser-tools.js"></script>
+  <script src="js/wingman.js"></script>
+  <!-- ClaroNote disabled — decoupled, coming in a later update -->
+  <!-- <script src="js/claronote.js"></script> -->
+  <script src="js/extensions.js"></script>
+  <script src="js/video-recorder.js"></script>
+  <script src="js/shortcut-router.js"></script>
+
+  <!-- Keyboard Shortcuts Overlay -->
+  <div id="shortcuts-overlay" class="shortcuts-overlay">
+    <div class="shortcuts-content">
+      <div class="shortcuts-header">
+        <h2>⌨️ Keyboard Shortcuts</h2>
+        <button class="shortcuts-close" onclick="hideShortcutsOverlay()">✕</button>
+      </div>
+
+      <div class="shortcuts-search">
+        <input type="text" id="shortcuts-search" placeholder="Search shortcuts..." autocomplete="off">
+      </div>
+
+      <div class="shortcuts-grid">
+        <div class="shortcut-group">
+          <h3>Navigation</h3>
+          <div class="shortcut-item" data-search="new tab open">
+            <span class="shortcut-desc">New tab</span>
+            <kbd class="shortcut">Cmd+T</kbd>
+          </div>
+          <div class="shortcut-item" data-search="close tab">
+            <span class="shortcut-desc">Close tab</span>
+            <kbd class="shortcut">Cmd+W</kbd>
+          </div>
+          <div class="shortcut-item" data-search="tab switch 1 2 3 4 5 6 7 8 9">
+            <span class="shortcut-desc">Go to tab 1-9</span>
+            <kbd class="shortcut">Cmd+1-9</kbd>
+          </div>
+          <div class="shortcut-item" data-search="history">
+            <span class="shortcut-desc">History</span>
+            <kbd class="shortcut">Cmd+Y</kbd>
+          </div>
+          <div class="shortcut-item" data-search="find search page">
+            <span class="shortcut-desc">Find on page</span>
+            <kbd class="shortcut">Cmd+F</kbd>
+          </div>
+        </div>
+
+        <div class="shortcut-group">
+          <h3>Wingman</h3>
+          <div class="shortcut-item" data-search="wingman panel toggle">
+            <span class="shortcut-desc">Wingman panel toggle</span>
+            <kbd class="shortcut">Cmd+K</kbd>
+          </div>
+          <div class="shortcut-item" data-search="voice input microphone">
+            <span class="shortcut-desc">Voice input</span>
+            <kbd class="shortcut">Cmd+M</kbd>
+          </div>
+          <div class="shortcut-item" data-search="picture pip overlay mini window">
+            <span class="shortcut-desc">Picture-in-Picture</span>
+            <kbd class="shortcut">Cmd+P</kbd>
+          </div>
+        </div>
+
+        <div class="shortcut-group">
+          <h3>Tools</h3>
+          <div class="shortcut-item" data-search="bookmark save">
+            <span class="shortcut-desc">Bookmark page</span>
+            <kbd class="shortcut">Cmd+D</kbd>
+          </div>
+          <div class="shortcut-item" data-search="draw annotation pen">
+            <span class="shortcut-desc">Drawing mode</span>
+            <kbd class="shortcut">Cmd+Shift+D</kbd>
+          </div>
+          <div class="shortcut-item" data-search="screenshot foto snap picture">
+            <span class="shortcut-desc">Screenshot</span>
+            <kbd class="shortcut">Cmd+Shift+S</kbd>
+          </div>
+          <div class="shortcut-item" data-search="audio record sound">
+            <span class="shortcut-desc">Record audio</span>
+            <kbd class="shortcut">Cmd+R</kbd>
+          </div>
+        </div>
+
+        <div class="shortcut-group">
+          <h3>Browser</h3>
+          <div class="shortcut-item" data-search="settings config">
+            <span class="shortcut-desc">Settings</span>
+            <kbd class="shortcut">Cmd+,</kbd>
+          </div>
+          <div class="shortcut-item" data-search="help shortcuts">
+            <span class="shortcut-desc">Help & shortcuts</span>
+            <kbd class="shortcut">Cmd+?</kbd>
+          </div>
+          <div class="shortcut-item" data-search="zoom in larger">
+            <span class="shortcut-desc">Zoom in</span>
+            <kbd class="shortcut">Cmd+=</kbd>
+          </div>
+          <div class="shortcut-item" data-search="zoom out smaller">
+            <span class="shortcut-desc">Zoom out</span>
+            <kbd class="shortcut">Cmd+-</kbd>
+          </div>
+          <div class="shortcut-item" data-search="zoom reset normal size">
+            <span class="shortcut-desc">Reset zoom</span>
+            <kbd class="shortcut">Cmd+0</kbd>
+          </div>
+        </div>
+      </div>
+
+      <div class="shortcuts-footer">
+        <p>💡 Tip: Type to search • Press <kbd>Esc</kbd> to close</p>
+      </div>
+    </div>
+  </div>
+
+  <link rel="stylesheet" href="css/shortcuts.css">
+
+  <script src="js/shortcuts.js"></script>
+
+<!-- Custom modal (Electron blocks native prompt/confirm/alert) -->
+<div id="tandem-modal-overlay" class="tandem-modal-overlay hidden">
+  <div class="tandem-modal" id="tandem-modal-box">
+    <h3 id="tandem-modal-title"></h3>
+    <p id="tandem-modal-message" style="display:none"></p>
+    <div id="tandem-modal-inputs"></div>
+    <div class="tandem-modal-buttons" id="tandem-modal-buttons"></div>
+  </div>
+</div>
+
+<script src="js/modal.js"></script>
+
+</body>
+
+</html>

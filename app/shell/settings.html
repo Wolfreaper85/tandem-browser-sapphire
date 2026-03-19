@@ -1,0 +1,2198 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tandem — Settings</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    /* Dark theme (default) */
+    :root {
+      --bg: #1a1a2e;
+      --surface: #16213e;
+      --surface2: #1c2a4a;
+      --accent: #e94560;
+      --text: #eee;
+      --text-dim: #888;
+      --input-bg: #0f3460;
+      --success: #4ecca3;
+      --warning: #f0a500;
+      --border: rgba(255,255,255,0.08);
+      --danger: #e94560;
+    }
+
+    /* Light theme */
+    [data-theme="light"] {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --surface2: #f1f5f9;
+      --accent: #e94560;
+      --text: #1e293b;
+      --text-dim: #64748b;
+      --input-bg: #f1f5f9;
+      --success: #059669;
+      --warning: #d97706;
+      --border: rgba(0,0,0,0.08);
+      --danger: #e94560;
+    }
+
+    /* System preference detection */
+    @media (prefers-color-scheme: light) {
+      [data-theme="system"] {
+        --bg: #f8fafc;
+        --surface: #ffffff;
+        --surface2: #f1f5f9;
+        --accent: #e94560;
+        --text: #1e293b;
+        --text-dim: #64748b;
+        --input-bg: #f1f5f9;
+        --success: #059669;
+        --warning: #d97706;
+        --border: rgba(0,0,0,0.08);
+        --danger: #e94560;
+      }
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-y: auto;
+    }
+
+    .settings-header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 24px 40px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .settings-header h1 { font-size: 22px; font-weight: 600; }
+    .settings-header .logo { font-size: 28px; }
+    .settings-header .version { font-size: 12px; color: var(--text-dim); margin-left: auto; }
+
+    .settings-nav {
+      position: fixed;
+      left: 0;
+      top: 76px;
+      bottom: 0;
+      width: 200px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 16px 0;
+      overflow-y: auto;
+    }
+    .settings-nav a {
+      display: block;
+      padding: 10px 24px;
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 13px;
+      border-left: 3px solid transparent;
+      transition: all 0.15s;
+    }
+    .settings-nav a:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+    .settings-nav a.active { color: var(--accent); border-left-color: var(--accent); background: rgba(233,69,96,0.08); }
+
+    .settings-body {
+      margin-left: 200px;
+      padding: 32px 40px 60px;
+      max-width: 720px;
+    }
+
+    .section { margin-bottom: 40px; }
+    .section h2 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section .section-desc {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-bottom: 16px;
+    }
+
+    .field {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      gap: 16px;
+    }
+    .field-info { flex: 1; }
+    .field-label { font-size: 13px; font-weight: 500; }
+    .field-desc { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+    select, input[type="text"], input[type="url"] {
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 12px;
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+      min-width: 180px;
+    }
+    select:focus, input[type="text"]:focus, input[type="url"]:focus {
+      border-color: var(--accent);
+    }
+
+    /* Toggle switch */
+    .toggle {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: #333;
+      border-radius: 24px;
+      transition: 0.2s;
+    }
+    .toggle .slider:before {
+      content: "";
+      position: absolute;
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background: white;
+      border-radius: 50%;
+      transition: 0.2s;
+    }
+    .toggle input:checked + .slider { background: var(--accent); }
+    .toggle input:checked + .slider:before { transform: translateX(20px); }
+    .toggle input:disabled + .slider { opacity: 0.4; cursor: not-allowed; }
+
+    /* Range slider */
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 120px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--input-bg);
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+    }
+
+    .range-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .range-value { font-size: 13px; color: var(--text); min-width: 24px; text-align: center; }
+
+    /* Buttons */
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { opacity: 0.85; }
+    .btn-danger { background: rgba(233,69,96,0.2); color: var(--danger); border: 1px solid var(--danger); }
+    .btn-danger:hover { background: rgba(233,69,96,0.35); }
+    .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: rgba(255,255,255,0.1); }
+
+    .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .field-stack {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .field-stack .field-info {
+      width: 100%;
+    }
+
+    .quick-link-editor {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .quick-link-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .quick-link-row {
+      display: grid;
+      grid-template-columns: minmax(0, 160px) minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .quick-link-empty {
+      padding: 10px 12px;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      color: var(--text-dim);
+      font-size: 12px;
+      text-align: center;
+    }
+
+    /* Stats grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .stat-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+    .stat-card .stat-value { font-size: 22px; font-weight: 700; color: var(--accent); }
+    .stat-card .stat-label { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+
+    /* Tooltip */
+    .tooltip {
+      position: relative;
+      cursor: help;
+      border-bottom: 1px dotted var(--text-dim);
+    }
+    .tooltip:hover::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #000;
+      color: var(--text);
+      font-size: 11px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      white-space: pre-line;
+      max-width: 260px;
+      z-index: 100;
+      pointer-events: none;
+    }
+
+    /* Toast notification */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: var(--success);
+      color: #111;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.3s;
+      z-index: 1000;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    /* Confirm modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 500;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 400px;
+      text-align: center;
+    }
+    .modal h3 { margin-bottom: 12px; }
+    .modal p { font-size: 13px; color: var(--text-dim); margin-bottom: 20px; }
+    .modal .btn-group { justify-content: center; }
+
+    /* ═══ Extensions UI ═══ */
+    .ext-tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .ext-tabs button {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-dim);
+      font-size: 13px;
+      padding: 10px 16px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .ext-tabs button:hover { color: var(--text); }
+    .ext-tabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    .ext-tab-content { display: none; }
+    .ext-tab-content.active { display: block; }
+
+    .ext-card {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      gap: 12px;
+    }
+    .ext-card-info { flex: 1; min-width: 0; }
+    .ext-card-name { font-size: 13px; font-weight: 500; }
+    .ext-card-desc { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+    .ext-card-meta { font-size: 10px; color: var(--text-dim); margin-top: 4px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .ext-card-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+
+    .ext-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: 10px;
+      white-space: nowrap;
+    }
+    .ext-badge-loaded { background: rgba(78,204,163,0.15); color: var(--success); }
+    .ext-badge-notloaded { background: rgba(240,165,0,0.15); color: var(--warning); }
+    .ext-badge-error { background: rgba(233,69,96,0.15); color: var(--danger); }
+    .ext-badge-update { background: rgba(100,149,237,0.2); color: #6495ed; }
+    .ext-badge-installed { background: rgba(78,204,163,0.15); color: var(--success); }
+    .ext-badge-imported { background: rgba(78,204,163,0.15); color: var(--success); }
+    .ext-badge-works { background: rgba(78,204,163,0.15); color: var(--success); }
+    .ext-badge-partial { background: rgba(240,165,0,0.15); color: var(--warning); }
+    .ext-badge-needs-work { background: rgba(233,69,96,0.15); color: var(--danger); }
+    .ext-badge-dnr { background: rgba(240,165,0,0.15); color: var(--warning); }
+    .ext-badge-native { background: rgba(100,149,237,0.2); color: #6495ed; }
+    .ext-badge-featured { background: rgba(233,69,96,0.12); color: var(--accent); }
+
+    .ext-category-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+    .ext-category-pill {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 4px 12px;
+      font-size: 11px;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .ext-category-pill:hover { color: var(--text); border-color: var(--text-dim); }
+    .ext-category-pill.active { color: var(--accent); border-color: var(--accent); background: rgba(233,69,96,0.08); }
+
+    .ext-empty {
+      text-align: center;
+      padding: 32px 16px;
+      color: var(--text-dim);
+      font-size: 13px;
+    }
+
+    .ext-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .ext-header-row .field-desc { margin: 0; }
+
+    .btn-sm {
+      padding: 5px 12px;
+      font-size: 12px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-sm.btn-primary { background: var(--accent); color: #fff; }
+    .btn-sm.btn-primary:hover { opacity: 0.85; }
+    .btn-sm.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-sm.btn-danger { background: rgba(233,69,96,0.2); color: var(--danger); }
+    .btn-sm.btn-danger:hover { background: rgba(233,69,96,0.35); }
+    .btn-sm.btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-sm.btn-secondary:hover { background: rgba(255,255,255,0.1); }
+
+    .ext-spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: ext-spin 0.6s linear infinite;
+    }
+    @keyframes ext-spin { to { transform: rotate(360deg); } }
+
+    .ext-error-msg {
+      font-size: 11px;
+      color: var(--danger);
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="settings-header">
+    <span class="logo">🧀</span>
+    <h1>Tandem Settings</h1>
+    <span class="version">v0.1.0</span>
+  </div>
+
+  <nav class="settings-nav" id="settings-nav">
+    <a href="#general" class="active" data-section="general">⚙️ General</a>
+    <a href="#screenshots" data-section="screenshots">📸 Screenshots</a>
+    <a href="#voice" data-section="voice">🎙️ Voice</a>
+    <a href="#appearance" data-section="appearance">🎨 Theme</a>
+    <a href="#stealth" data-section="stealth">🛡️ Stealth</a>
+    <a href="#sync" data-section="sync">🔄 Sync</a>
+    <a href="#behavior" data-section="behavior">🧬 Behavioral Learning</a>
+    <a href="#autonomy" data-section="autonomy">🤖 AI Autonomy</a>
+    <a href="#data" data-section="data">💾 Data</a>
+    <a href="#extensions" data-section="extensions">🧩 Extensions</a>
+  </nav>
+
+  <div class="settings-body">
+
+    <!-- ═══ General ═══ -->
+    <div class="section" id="general">
+      <h2>⚙️ General</h2>
+      <p class="section-desc">Basic settings for Tandem Browser</p>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">Start page</div>
+          <div class="field-desc">Which page opens on a new tab?</div>
+        </div>
+        <select id="cfg-startPage">
+          <option value="wingman">Wingman (New Tab)</option>
+          <option value="duckduckgo">DuckDuckGo</option>
+          <option value="custom">Custom URL</option>
+        </select>
+      </div>
+
+      <div class="field" id="field-customStartUrl" style="display:none;">
+        <div class="field-info">
+          <div class="field-label">Custom start URL</div>
+        </div>
+        <input type="url" id="cfg-customStartUrl" placeholder="https://example.com" />
+      </div>
+
+      <div class="field field-stack">
+        <div class="field-info">
+          <div class="field-label">Quick links</div>
+          <div class="field-desc">Choose the shortcuts shown on the new tab page</div>
+        </div>
+        <div class="quick-link-editor">
+          <div class="quick-link-list" id="cfg-quickLinks"></div>
+          <div class="btn-group">
+            <button type="button" class="btn btn-secondary" id="btn-addQuickLink">Add link</button>
+            <button type="button" class="btn btn-primary" id="btn-saveQuickLinks">Save links</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">Language</div>
+          <div class="field-desc">Interface and search language</div>
+        </div>
+        <select id="cfg-language">
+          <option value="nl-BE">Dutch (Belgium)</option>
+          <option value="nl-NL">Dutch (Netherlands)</option>
+          <option value="en-US">English (US)</option>
+          <option value="en-GB">English (UK)</option>
+          <option value="de-DE">German</option>
+          <option value="fr-FR">French</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">Wingman panel default open</div>
+          <div class="field-desc">Panel auto-open on startup</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="cfg-wingmanPanelDefaultOpen">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">Show bookmarks bar</div>
+          <div class="field-desc">Show the bookmarks bar below the address bar (Cmd+Shift+B)</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="cfg-showBookmarksBar">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- ═══ Screenshots ═══ -->
+    <div class="section" id="screenshots">
+      <h2>📸 Screenshots</h2>
+      <p class="section-desc">Where are screenshots saved?</p>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">To clipboard</div>
+          <div class="field-desc">Always on — every screenshot goes to your clipboard</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" checked disabled>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">Local folder</div>
+          <div class="field-desc">Save screenshots as files</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="cfg-localFolder">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="field" id="field-localFolderPath">
+        <div class="field-info">
+          <div class="field-label">Storage path</div>
+        </div>
+        <input type="text" id="cfg-localFolderPath" placeholder="~/Pictures/Tandem/" />
+      </div>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">Apple Photos</div>
+          <div class="field-desc">Auto-import screenshots to Apple Photos (macOS only)</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="cfg-applePhotos">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">Google Photos</div>
+          <div class="field-desc">Auto-upload screenshots to your Google Photos library</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="cfg-googlePhotos">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="field" id="field-googlePhotosClientId">
+        <div class="field-info">
+          <div class="field-label">Desktop OAuth Client ID</div>
+          <div class="field-desc">Use your own Google desktop app client ID. Stored locally only.</div>
+        </div>
+        <input type="text" id="cfg-googlePhotosClientId" placeholder="1234567890-abc123.apps.googleusercontent.com" />
+      </div>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">Connection</div>
+          <div class="field-desc" id="googlePhotosStatus">Not connected</div>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-secondary" id="btn-googlePhotosConnect" type="button">Connect</button>
+          <button class="btn btn-danger" id="btn-googlePhotosDisconnect" type="button">Disconnect</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Voice ═══ -->
+    <div class="section" id="voice">
+      <h2>🎙️ Voice</h2>
+      <p class="section-desc">Voice input settings</p>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">Input language</div>
+          <div class="field-desc">Language for speech recognition</div>
+        </div>
+        <select id="cfg-voiceLanguage">
+          <option value="nl-BE">Dutch (Belgium)</option>
+          <option value="nl-NL">Dutch (Netherlands)</option>
+          <option value="en-US">English (US)</option>
+          <option value="en-GB">English (UK)</option>
+          <option value="de-DE">German</option>
+          <option value="fr-FR">French</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">Auto-send after silence</div>
+          <div class="field-desc">Auto-send message after a pause in speaking</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="cfg-autoSendOnSilence">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">Silence timeout</div>
+          <div class="field-desc">Wait this long after last word before auto-send</div>
+        </div>
+        <div class="range-wrap">
+          <input type="range" id="cfg-silenceTimeout" min="1" max="5" step="0.5" value="2">
+          <span class="range-value" id="silenceTimeoutVal">2s</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Appearance ═══ -->
+    <div class="section" id="appearance">
+      <h2>🎨 Theme</h2>
+      <p class="section-desc">Color scheme and visual settings</p>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">Color scheme</div>
+          <div class="field-desc">Choose between dark, light or system preference</div>
+        </div>
+        <select id="cfg-theme">
+          <option value="dark">🌙 Dark</option>
+          <option value="light">☀️ Light</option>
+          <option value="system">🔄 System</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">Help link</div>
+          <div class="field-desc">Quick access to help and shortcuts</div>
+        </div>
+        <button type="button" class="btn btn-secondary" onclick="openHelpPage()">
+          📖 Open Help Page
+        </button>
+      </div>
+
+      <!-- Liquid Glass Lite Settings -->
+      <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border);">
+        <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+          ✨ Liquid Glass Effects
+        </h3>
+        <p class="section-desc" style="margin-bottom: 16px;">
+          Advanced glass morphism with subtle lensing and depth. Creates semi-transparent UI that shows through to content below.
+        </p>
+
+        <div class="field">
+          <div class="field-info">
+            <div class="field-label">Enable Liquid Glass</div>
+            <div class="field-desc">Apply glass effects to browser chrome (tab bar, toolbar, panels)</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="cfg-lgl-enabled" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="field">
+          <div class="field-info">
+            <div class="field-label">Glass blur intensity</div>
+            <div class="field-desc">
+              How much blur to apply to glass surfaces (<span id="lgl-blur-value">20</span>px)
+            </div>
+          </div>
+          <input type="range" id="cfg-lgl-blur" min="10" max="30" value="20" 
+                 style="width: 180px; height: 6px; border-radius: 3px; background: var(--input-bg); outline: none; -webkit-appearance: none;">
+        </div>
+
+        <div class="field" style="opacity: 0.5; pointer-events: none;">
+          <div class="field-info">
+            <div class="field-label">Refraction strength</div>
+            <div class="field-desc">
+              WebGL lensing intensity (<span id="lgl-refraction-value">15</span>%) — requires full LGL package
+            </div>
+          </div>
+          <input type="range" id="cfg-lgl-refraction" min="0" max="100" value="15" 
+                 style="width: 180px; height: 6px; border-radius: 3px; background: var(--input-bg); outline: none; -webkit-appearance: none;">
+        </div>
+
+        <div class="field" style="background: rgba(233, 69, 96, 0.1); border-color: rgba(233, 69, 96, 0.3);">
+          <div class="field-info">
+            <div class="field-label">⚠️ Performance Note</div>
+            <div class="field-desc">
+              CSS-first glass (T1 Static tier) is currently active. Full WebGL lensing will be available when @mblock/liquid-glass package is integrated.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Stealth ═══ -->
+    <div class="section" id="stealth">
+      <h2>🛡️ Stealth</h2>
+      <p class="section-desc">Anti-detection settings — keep Tandem invisible</p>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">User-Agent</div>
+          <div class="field-desc">Automatically matches the latest Chrome version</div>
+        </div>
+        <select id="cfg-userAgent">
+          <option value="auto">Auto (match Chrome)</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+
+      <div class="field" id="field-customUserAgent" style="display:none;">
+        <div class="field-info">
+          <div class="field-label">Custom User-Agent</div>
+        </div>
+        <input type="text" id="cfg-customUserAgent" placeholder="Mozilla/5.0 ..." />
+      </div>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">Stealth Level</div>
+          <div class="field-desc">
+            <span class="tooltip" data-tip="Low: Basic UA + header patches&#10;Medium: + navigator/chrome mocks, fingerprint patches&#10;High: + canvas/WebGL randomization, timing humanization">Hover for explanation per level</span>
+          </div>
+        </div>
+        <select id="cfg-stealthLevel">
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">Accept-Language</div>
+          <div class="field-desc">Auto follows your language setting</div>
+        </div>
+        <select id="cfg-acceptLanguage">
+          <option value="auto">Auto</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+
+      <div class="field" id="field-customAcceptLanguage" style="display:none;">
+        <div class="field-info">
+          <div class="field-label">Custom Accept-Language</div>
+        </div>
+        <input type="text" id="cfg-customAcceptLanguage" placeholder="nl-BE,nl;q=0.9,en-US;q=0.8" />
+      </div>
+    </div>
+
+    <!-- ═══ Sync ═══ -->
+    <div class="section" id="sync">
+      <h2>🔄 Sync</h2>
+      <p class="section-desc">Sync data from Chrome</p>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">Chrome bookmarks sync</div>
+          <div class="field-desc">Auto-import and sync bookmarks from Google Chrome</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="cfg-chromeBookmarks">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="field" id="field-chromeProfile">
+        <div class="field-info">
+          <div class="field-label">Chrome profile</div>
+          <div class="field-desc">Select which Chrome profile to sync</div>
+        </div>
+        <select id="cfg-chromeProfile">
+          <option value="Default">Default</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">Sync status</div>
+          <div class="field-desc" id="sync-status-text">Not active</div>
+        </div>
+        <button class="btn btn-secondary" id="btn-syncNow">🔄 Sync now</button>
+      </div>
+    </div>
+
+    <!-- ═══ Behavioral Learning ═══ -->
+    <div class="section" id="behavior">
+      <h2>🧬 Behavioral Learning</h2>
+      <p class="section-desc">Tandem learns your browsing patterns for natural automation</p>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">Tracking on</div>
+          <div class="field-desc">Record mouse, scroll, keyboard and navigation patterns</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="cfg-trackingEnabled">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">Clear behavioral data</div>
+          <div class="field-desc">Delete all stored behavioral data</div>
+        </div>
+        <button class="btn btn-danger" id="btn-clearBehavior">Clear data</button>
+      </div>
+
+      <h3 style="font-size:14px;margin:16px 0 8px;">📊 Statistieken</h3>
+      <div class="stats-grid" id="behavior-stats">
+        <div class="stat-card"><div class="stat-value" id="stat-todayEvents">—</div><div class="stat-label">Events vandaag</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-totalFiles">—</div><div class="stat-label">Dagen gelogd</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-sessionEvents">—</div><div class="stat-label">Sessie events</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-avgKeypress">—</div><div class="stat-label">Gem. keypress (ms)</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-avgClick">—</div><div class="stat-label">Gem. click delay (ms)</div></div>
+      </div>
+    </div>
+
+    <!-- ═══ AI Autonomy ═══ -->
+    <div class="section" id="autonomy">
+      <h2>🤖 AI Autonomy</h2>
+      <p class="section-desc">Configure what Wingman/Claude can do automatically without asking</p>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">Read pages without asking</div>
+          <div class="field-desc">Screenshots, scrolling, reading text</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="cfg-autoApproveRead">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">Navigate without asking</div>
+          <div class="field-desc">Navigate to URLs, open/close tabs</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="cfg-autoApproveNavigate">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">Click without asking</div>
+          <div class="field-desc">Click links and buttons</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="cfg-autoApproveClick">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">Type text without asking</div>
+          <div class="field-desc">Fill text in search fields and inputs</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="cfg-autoApproveType">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">Fill forms without asking</div>
+          <div class="field-desc">Auto-fill and submit forms</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="cfg-autoApproveForms">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="field" style="flex-direction:column;align-items:flex-start;">
+        <div class="field-info" style="margin-bottom:8px;">
+          <div class="field-label">Vertrouwde sites</div>
+          <div class="field-desc">On these sites the AI can do more automatically</div>
+        </div>
+        <textarea id="cfg-trustedSites" style="width:100%;min-height:60px;background:var(--input-bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:12px;resize:vertical;" placeholder="google.com&#10;wikipedia.org&#10;duckduckgo.com"></textarea>
+      </div>
+    </div>
+
+    <!-- ═══ Data ═══ -->
+    <div class="section" id="data">
+      <h2>💾 Data</h2>
+      <p class="section-desc">Export, import or clear all your Tandem data</p>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">Export all data</div>
+          <div class="field-desc">Bookmarks, history, chat, behavioral data — als JSON</div>
+        </div>
+        <button class="btn btn-secondary" id="btn-export">📦 Export</button>
+      </div>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">Import data</div>
+          <div class="field-desc">Restore a previously exported Tandem backup</div>
+        </div>
+        <button class="btn btn-secondary" id="btn-import">📥 Import</button>
+        <input type="file" id="import-file" accept=".json" style="display:none" />
+      </div>
+
+      <div class="field">
+        <div class="field-info">
+          <div class="field-label">Clear all data</div>
+          <div class="field-desc">⚠️ This deletes EVERYTHING — chat, config, behavioral data</div>
+        </div>
+        <button class="btn btn-danger" id="btn-wipe">🗑 Clear all</button>
+      </div>
+    </div>
+
+    <!-- ═══ Extensions ═══ -->
+    <div class="section" id="extensions">
+      <h2>🧩 Extensions</h2>
+      <p class="section-desc">Manage browser extensions, import from Chrome, or discover new ones</p>
+
+      <div class="ext-tabs" id="ext-tabs">
+        <button class="active" data-tab="ext-installed">Installed</button>
+        <button data-tab="ext-chrome">From Chrome</button>
+        <button data-tab="ext-gallery">Gallery</button>
+      </div>
+
+      <!-- Installed tab -->
+      <div class="ext-tab-content active" id="ext-installed">
+        <div class="ext-header-row" id="ext-update-header" style="display:none">
+          <div class="field-desc" id="ext-update-status-text">Checking for updates...</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn-sm btn-secondary" id="ext-check-updates-btn">Check for Updates</button>
+            <button class="btn-sm btn-primary" id="ext-update-all-btn" style="display:none">Update All</button>
+          </div>
+        </div>
+        <div id="ext-installed-list"></div>
+      </div>
+
+      <!-- From Chrome tab -->
+      <div class="ext-tab-content" id="ext-chrome">
+        <div class="ext-header-row">
+          <div class="field-desc">Import extensions from your Chrome browser</div>
+          <button class="btn-sm btn-secondary" id="ext-chrome-import-all">Import All</button>
+        </div>
+        <div id="ext-chrome-list"></div>
+      </div>
+
+      <!-- Gallery tab -->
+      <div class="ext-tab-content" id="ext-gallery">
+        <div class="ext-category-filters" id="ext-gallery-filters"></div>
+        <div id="ext-gallery-list"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast">Saved ✓</div>
+
+  <!-- Confirm modal -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal">
+      <h3 id="modal-title">Are you sure?</h3>
+      <p id="modal-text">This cannot be undone.</p>
+      <div class="btn-group">
+        <button class="btn btn-secondary" id="modal-cancel">Cancel</button>
+        <button class="btn btn-danger" id="modal-confirm">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/api-auth.js"></script>
+  <script>
+    const API = 'http://localhost:8765';
+    const quickLinksList = document.getElementById('cfg-quickLinks');
+    let googlePhotosStatus = {};
+
+    // ═══ Load config ═══
+    let config = {};
+
+    async function loadConfig() {
+      try {
+        const res = await fetch(`${API}/config`);
+        if (res.ok) config = await res.json();
+      } catch { /* API not ready */ }
+      await loadGooglePhotosStatus();
+      applyConfigToUI();
+    }
+
+    async function loadGooglePhotosStatus() {
+      try {
+        const res = await fetch(`${API}/integrations/google-photos/status`);
+        if (res.ok) googlePhotosStatus = await res.json();
+      } catch {
+        googlePhotosStatus = {};
+      }
+    }
+
+    function applyConfigToUI() {
+      const g = config.general || {};
+      const s = config.screenshots || {};
+      const v = config.voice || {};
+      const a = config.appearance || {};
+      const st = config.stealth || {};
+      const b = config.behavior || {};
+      const lgl = a.liquidGlass || {};
+
+      // General
+      setVal('cfg-startPage', g.startPage || 'wingman');
+      setVal('cfg-customStartUrl', g.customStartUrl || '');
+
+      // Appearance/Theme
+      setVal('cfg-theme', a.theme || 'dark');
+      applyTheme(a.theme || 'dark');
+      setVal('cfg-language', g.language || 'nl-BE');
+      setVal('cfg-wingmanPanelPosition', g.wingmanPanelPosition || 'right');
+      setChecked('cfg-wingmanPanelDefaultOpen', !!g.wingmanPanelDefaultOpen);
+      setChecked('cfg-showBookmarksBar', g.showBookmarksBar !== false);
+      toggleField('field-customStartUrl', g.startPage === 'custom');
+      renderQuickLinkRows(g.quickLinks || []);
+
+      // Liquid Glass Lite
+      setChecked('cfg-lgl-enabled', lgl.enabled !== false);
+      const blurRadius = lgl.blurRadius || 20;
+      const refractionStrength = lgl.refractionStrength || 15;
+      setVal('cfg-lgl-blur', blurRadius);
+      setVal('cfg-lgl-refraction', refractionStrength);
+      document.getElementById('lgl-blur-value').textContent = blurRadius;
+      document.getElementById('lgl-refraction-value').textContent = refractionStrength;
+
+      // Screenshots
+      setChecked('cfg-localFolder', s.localFolder !== false);
+      setChecked('cfg-applePhotos', !!s.applePhotos);
+      setChecked('cfg-googlePhotos', !!s.googlePhotos);
+      setVal('cfg-localFolderPath', s.localFolderPath || '~/Pictures/Tandem/');
+      setVal('cfg-googlePhotosClientId', googlePhotosStatus.clientId || '');
+      renderGooglePhotosStatus();
+
+      // Voice
+      setVal('cfg-voiceLanguage', v.inputLanguage || 'nl-BE');
+      setChecked('cfg-autoSendOnSilence', v.autoSendOnSilence !== false);
+      const timeout = v.silenceTimeoutSeconds || 2;
+      document.getElementById('cfg-silenceTimeout').value = timeout;
+      document.getElementById('silenceTimeoutVal').textContent = timeout + 's';
+
+      // Stealth
+      setVal('cfg-userAgent', st.userAgent || 'auto');
+      setVal('cfg-customUserAgent', st.customUserAgent || '');
+      setVal('cfg-stealthLevel', st.stealthLevel || 'medium');
+      setVal('cfg-acceptLanguage', st.acceptLanguage || 'auto');
+      setVal('cfg-customAcceptLanguage', st.customAcceptLanguage || '');
+      toggleField('field-customUserAgent', st.userAgent === 'custom');
+      toggleField('field-customAcceptLanguage', st.acceptLanguage === 'custom');
+
+      // Sync
+      const sy = config.sync || {};
+      setChecked('cfg-chromeBookmarks', !!sy.chromeBookmarks);
+      setVal('cfg-chromeProfile', sy.chromeProfile || 'Default');
+      toggleField('field-chromeProfile', !!sy.chromeBookmarks);
+
+      // Behavior
+      setChecked('cfg-trackingEnabled', b.trackingEnabled !== false);
+    }
+
+    function setVal(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
+    function setChecked(id, val) { const el = document.getElementById(id); if (el) el.checked = val; }
+    function toggleField(id, show) { const el = document.getElementById(id); if (el) el.style.display = show ? 'flex' : 'none'; }
+
+    function renderGooglePhotosStatus() {
+      const statusEl = document.getElementById('googlePhotosStatus');
+      const connectBtn = document.getElementById('btn-googlePhotosConnect');
+      const disconnectBtn = document.getElementById('btn-googlePhotosDisconnect');
+      const enabled = document.getElementById('cfg-googlePhotos').checked;
+      const connected = !!googlePhotosStatus.connected;
+      const configured = !!googlePhotosStatus.clientIdConfigured;
+      if (statusEl) {
+        if (connected) {
+          statusEl.textContent = enabled
+            ? 'Connected and ready to auto-upload screenshots'
+            : 'Connected, but auto-upload is currently disabled';
+        } else if (configured) {
+          statusEl.textContent = 'Client ID saved. Connect Google Photos to finish setup.';
+        } else {
+          statusEl.textContent = 'Add a Google desktop OAuth client ID to connect.';
+        }
+      }
+      if (connectBtn) connectBtn.disabled = !configured;
+      if (disconnectBtn) disconnectBtn.disabled = !connected;
+    }
+
+    function appendQuickLinkRow(link = {}) {
+      const row = document.createElement('div');
+      row.className = 'quick-link-row';
+      row.innerHTML = `
+        <input type="text" class="quick-link-label" placeholder="Label" value="${esc(link.label || '')}" />
+        <input type="url" class="quick-link-url" placeholder="https://example.com" value="${esc(link.url || '')}" />
+        <button type="button" class="btn btn-danger quick-link-remove">Remove</button>
+      `;
+      row.querySelector('.quick-link-remove').addEventListener('click', () => {
+        row.remove();
+        updateQuickLinksEmptyState();
+      });
+      quickLinksList.appendChild(row);
+      updateQuickLinksEmptyState();
+    }
+
+    function renderQuickLinkRows(links) {
+      quickLinksList.innerHTML = '';
+      if (Array.isArray(links)) {
+        for (const link of links) appendQuickLinkRow(link);
+      }
+      updateQuickLinksEmptyState();
+    }
+
+    function updateQuickLinksEmptyState() {
+      const rows = quickLinksList.querySelectorAll('.quick-link-row');
+      let empty = quickLinksList.querySelector('.quick-link-empty');
+      if (!rows.length) {
+        if (!empty) {
+          empty = document.createElement('div');
+          empty.className = 'quick-link-empty';
+          empty.textContent = 'No quick links configured yet.';
+          quickLinksList.appendChild(empty);
+        }
+        return;
+      }
+      empty?.remove();
+    }
+
+    function normalizeQuickLinkUrl(rawUrl) {
+      const trimmed = rawUrl.trim();
+      if (!trimmed) return '';
+      const withScheme = /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(trimmed) ? trimmed : `https://${trimmed}`;
+      return new URL(withScheme).toString();
+    }
+
+    function collectQuickLinks() {
+      const rows = quickLinksList.querySelectorAll('.quick-link-row');
+      const links = [];
+
+      for (const row of rows) {
+        const label = row.querySelector('.quick-link-label').value.trim();
+        const rawUrl = row.querySelector('.quick-link-url').value.trim();
+
+        if (!label && !rawUrl) continue;
+        if (!label || !rawUrl) {
+          throw new Error('Each quick link needs both a label and a URL.');
+        }
+
+        links.push({
+          label,
+          url: normalizeQuickLinkUrl(rawUrl),
+        });
+      }
+
+      return links;
+    }
+
+    async function saveQuickLinks() {
+      try {
+        const quickLinks = collectQuickLinks();
+        await saveConfig({ general: { quickLinks } });
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : 'Save failed ✕');
+      }
+    }
+
+    // ═══ Save on change ═══
+    async function saveConfig(patch) {
+      try {
+        const res = await fetch(`${API}/config`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(patch),
+        });
+        if (res.ok) {
+          config = await res.json();
+          showToast('Saved ✓');
+        }
+      } catch { showToast('Save failed ✕'); }
+    }
+
+    async function saveGooglePhotosClientId() {
+      const clientId = document.getElementById('cfg-googlePhotosClientId').value.trim();
+      try {
+        const res = await fetch(`${API}/integrations/google-photos/config`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clientId }),
+        });
+        if (res.ok) {
+          googlePhotosStatus = await res.json();
+          renderGooglePhotosStatus();
+          showToast('Saved ✓');
+        }
+      } catch {
+        showToast('Save failed ✕');
+      }
+    }
+
+    async function connectGooglePhotos() {
+      const clientId = document.getElementById('cfg-googlePhotosClientId').value.trim();
+      try {
+        const res = await fetch(`${API}/integrations/google-photos/connect`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clientId }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Connect failed');
+        }
+        const popup = window.open(data.authUrl, 'google-photos-auth', 'width=520,height=760');
+        if (!popup) {
+          throw new Error('Popup blocked');
+        }
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : 'Connect failed ✕');
+      }
+    }
+
+    async function disconnectGooglePhotos() {
+      try {
+        const res = await fetch(`${API}/integrations/google-photos/disconnect`, { method: 'POST' });
+        if (res.ok) {
+          googlePhotosStatus = await res.json();
+          renderGooglePhotosStatus();
+          showToast('Disconnected ✓');
+        }
+      } catch {
+        showToast('Disconnect failed ✕');
+      }
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2000);
+    }
+
+    // Wire up all controls
+    function wire(id, path, transform) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const event = el.type === 'checkbox' ? 'change' : el.tagName === 'SELECT' ? 'change' : 'blur';
+      el.addEventListener(event, () => {
+        let val = el.type === 'checkbox' ? el.checked : el.value;
+        if (transform) val = transform(val);
+        // Build nested patch from dot path
+        const parts = path.split('.');
+        const patch = {};
+        let cur = patch;
+        for (let i = 0; i < parts.length - 1; i++) {
+          cur[parts[i]] = {};
+          cur = cur[parts[i]];
+        }
+        cur[parts[parts.length - 1]] = val;
+        saveConfig(patch);
+      });
+    }
+
+    wire('cfg-startPage', 'general.startPage');
+    wire('cfg-customStartUrl', 'general.customStartUrl');
+    wire('cfg-language', 'general.language');
+    wire('cfg-wingmanPanelPosition', 'general.wingmanPanelPosition');
+    wire('cfg-wingmanPanelDefaultOpen', 'general.wingmanPanelDefaultOpen');
+    wire('cfg-localFolder', 'screenshots.localFolder');
+    wire('cfg-localFolderPath', 'screenshots.localFolderPath');
+    wire('cfg-googlePhotos', 'screenshots.googlePhotos');
+    wire('cfg-voiceLanguage', 'voice.inputLanguage');
+    wire('cfg-autoSendOnSilence', 'voice.autoSendOnSilence');
+    wire('cfg-theme', 'appearance.theme');
+    wire('cfg-userAgent', 'stealth.userAgent');
+    wire('cfg-customUserAgent', 'stealth.customUserAgent');
+    wire('cfg-stealthLevel', 'stealth.stealthLevel');
+    wire('cfg-acceptLanguage', 'stealth.acceptLanguage');
+    wire('cfg-customAcceptLanguage', 'stealth.customAcceptLanguage');
+    wire('cfg-showBookmarksBar', 'general.showBookmarksBar');
+    wire('cfg-applePhotos', 'screenshots.applePhotos');
+    wire('cfg-chromeBookmarks', 'sync.chromeBookmarks');
+    wire('cfg-chromeProfile', 'sync.chromeProfile');
+    wire('cfg-trackingEnabled', 'behavior.trackingEnabled');
+    document.getElementById('btn-addQuickLink').addEventListener('click', () => appendQuickLinkRow());
+    document.getElementById('btn-saveQuickLinks').addEventListener('click', () => {
+      void saveQuickLinks();
+    });
+    document.getElementById('cfg-googlePhotosClientId').addEventListener('blur', () => {
+      void saveGooglePhotosClientId();
+    });
+    document.getElementById('btn-googlePhotosConnect').addEventListener('click', () => {
+      void connectGooglePhotos();
+    });
+    document.getElementById('btn-googlePhotosDisconnect').addEventListener('click', () => {
+      void disconnectGooglePhotos();
+    });
+    document.getElementById('cfg-googlePhotos').addEventListener('change', () => {
+      renderGooglePhotosStatus();
+    });
+    window.addEventListener('message', (event) => {
+      if (event.data?.type !== 'tandem-google-photos-auth') return;
+      void loadGooglePhotosStatus().then(() => {
+        renderGooglePhotosStatus();
+        showToast(event.data.ok ? 'Google Photos connected ✓' : (event.data.error || 'Connect failed ✕'));
+      });
+    });
+
+    // Liquid Glass Lite
+    wire('cfg-lgl-enabled', 'appearance.liquidGlass.enabled');
+
+    // LGL blur radius slider
+    const lglBlurSlider = document.getElementById('cfg-lgl-blur');
+    const lglBlurValue = document.getElementById('lgl-blur-value');
+    if (lglBlurSlider && lglBlurValue) {
+      lglBlurSlider.addEventListener('input', () => {
+        lglBlurValue.textContent = lglBlurSlider.value;
+      });
+      lglBlurSlider.addEventListener('change', () => {
+        saveConfig({ appearance: { liquidGlass: { blurRadius: parseInt(lglBlurSlider.value) } } });
+      });
+    }
+
+    // LGL refraction strength slider (disabled for now, ready for WebGL)
+    const lglRefractionSlider = document.getElementById('cfg-lgl-refraction');
+    const lglRefractionValue = document.getElementById('lgl-refraction-value');
+    if (lglRefractionSlider && lglRefractionValue) {
+      lglRefractionSlider.addEventListener('input', () => {
+        lglRefractionValue.textContent = lglRefractionSlider.value;
+      });
+      lglRefractionSlider.addEventListener('change', () => {
+        saveConfig({ appearance: { liquidGlass: { refractionStrength: parseInt(lglRefractionSlider.value) } } });
+      });
+    }
+
+    // Silence timeout slider
+    const silenceSlider = document.getElementById('cfg-silenceTimeout');
+    const silenceVal = document.getElementById('silenceTimeoutVal');
+    silenceSlider.addEventListener('input', () => {
+      silenceVal.textContent = silenceSlider.value + 's';
+    });
+    silenceSlider.addEventListener('change', () => {
+      saveConfig({ voice: { silenceTimeoutSeconds: parseFloat(silenceSlider.value) } });
+    });
+
+    // Show/hide conditional fields
+    document.getElementById('cfg-startPage').addEventListener('change', (e) => {
+      toggleField('field-customStartUrl', e.target.value === 'custom');
+    });
+    document.getElementById('cfg-userAgent').addEventListener('change', (e) => {
+      toggleField('field-customUserAgent', e.target.value === 'custom');
+    });
+    document.getElementById('cfg-acceptLanguage').addEventListener('change', (e) => {
+      toggleField('field-customAcceptLanguage', e.target.value === 'custom');
+    });
+
+    // ═══ Navigation highlight ═══
+    const navLinks = document.querySelectorAll('.settings-nav a');
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          navLinks.forEach(l => l.classList.remove('active'));
+          const link = document.querySelector(`.settings-nav a[data-section="${entry.target.id}"]`);
+          if (link) link.classList.add('active');
+        }
+      }
+    }, { rootMargin: '-20% 0px -70% 0px' });
+    document.querySelectorAll('.section').forEach(s => observer.observe(s));
+
+    // ═══ Behavior stats ═══
+    async function loadBehaviorStats() {
+      try {
+        const res = await fetch(`${API}/behavior/stats`);
+        if (res.ok) {
+          const stats = await res.json();
+          document.getElementById('stat-todayEvents').textContent = stats.todayEvents ?? '—';
+          document.getElementById('stat-totalFiles').textContent = stats.totalFiles ?? '—';
+          document.getElementById('stat-sessionEvents').textContent = stats.totalEventsSession ?? '—';
+          document.getElementById('stat-avgKeypress').textContent = stats.avgKeypressIntervalMs ?? '—';
+          document.getElementById('stat-avgClick').textContent = stats.avgClickDelayMs ?? '—';
+        }
+      } catch { /* API not ready */ }
+    }
+
+    // ═══ Confirm modal ═══
+    let modalCallback = null;
+    function showModal(title, text, onConfirm) {
+      document.getElementById('modal-title').textContent = title;
+      document.getElementById('modal-text').textContent = text;
+      modalCallback = onConfirm;
+      document.getElementById('modal-overlay').classList.add('show');
+    }
+    document.getElementById('modal-cancel').addEventListener('click', () => {
+      document.getElementById('modal-overlay').classList.remove('show');
+      modalCallback = null;
+    });
+    document.getElementById('modal-confirm').addEventListener('click', () => {
+      document.getElementById('modal-overlay').classList.remove('show');
+      if (modalCallback) modalCallback();
+      modalCallback = null;
+    });
+
+    // Clear behavior data
+    document.getElementById('btn-clearBehavior').addEventListener('click', () => {
+      showModal('Clear behavioral data?', 'All stored behavioral patterns will be deleted. This cannot be undone.', async () => {
+        try {
+          await fetch(`${API}/behavior/clear`, { method: 'POST' });
+          showToast('Behavioral data cleared ✓');
+          loadBehaviorStats();
+        } catch { showToast('Clear failed ✕'); }
+      });
+    });
+
+    // Export data
+    document.getElementById('btn-export').addEventListener('click', async () => {
+      try {
+        const res = await fetch(`${API}/data/export`);
+        if (res.ok) {
+          const data = await res.json();
+          const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `tandem-export-${new Date().toISOString().slice(0,10)}.json`;
+          a.click();
+          URL.revokeObjectURL(url);
+          showToast('Data exported ✓');
+        }
+      } catch { showToast('Export failed ✕'); }
+    });
+
+    // Import data
+    const importFile = document.getElementById('import-file');
+    document.getElementById('btn-import').addEventListener('click', () => importFile.click());
+    importFile.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        const res = await fetch(`${API}/data/import`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        if (res.ok) {
+          showToast('Data imported ✓');
+          loadConfig();
+        }
+      } catch { showToast('Import failed ✕'); }
+      importFile.value = '';
+    });
+
+    // Wipe all data
+    document.getElementById('btn-wipe').addEventListener('click', () => {
+      showModal('⚠️ Clear ALL data?', 'This will delete your chat history, config, behavioral data and more. This CANNOT be undone!', async () => {
+        try {
+          await fetch(`${API}/data/wipe`, { method: 'POST' });
+          showToast('All data cleared ✓');
+          loadConfig();
+          loadBehaviorStats();
+        } catch { showToast('Clear failed ✕'); }
+      });
+    });
+
+    // ═══ Theme and Help Functions ═══
+    function openHelpPage() {
+      window.open('help.html', '_blank');
+    }
+
+    // Handle theme changes
+    document.getElementById('cfg-theme').addEventListener('change', (e) => {
+      applyTheme(e.target.value);
+    });
+
+    function applyTheme(theme) {
+      if (theme === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+      } else if (theme === 'system') {
+        document.documentElement.setAttribute('data-theme', 'system');
+      } else {
+        document.documentElement.removeAttribute('data-theme'); // Default dark
+      }
+      // Broadcast to all other renderer windows via BroadcastChannel
+      try {
+        const bc = new BroadcastChannel('tandem-theme');
+        bc.postMessage({ theme });
+        bc.close();
+      } catch {}
+    }
+
+    // ═══ Chrome sync ═══
+    // Show/hide profile selector when sync toggled
+    document.getElementById('cfg-chromeBookmarks').addEventListener('change', (e) => {
+      toggleField('field-chromeProfile', e.target.checked);
+      // Start/stop sync via API
+      if (e.target.checked) {
+        fetch(`${API}/import/chrome/sync/start`, { method: 'POST' }).then(() => updateSyncStatus());
+      } else {
+        fetch(`${API}/import/chrome/sync/stop`, { method: 'POST' }).then(() => updateSyncStatus());
+      }
+    });
+
+    // Load Chrome profiles into dropdown
+    async function loadChromeProfiles() {
+      try {
+        const res = await fetch(`${API}/import/chrome/profiles`);
+        if (res.ok) {
+          const data = await res.json();
+          const select = document.getElementById('cfg-chromeProfile');
+          const currentVal = select.value;
+          select.innerHTML = '';
+          if (data.profiles && data.profiles.length > 0) {
+            for (const p of data.profiles) {
+              const opt = document.createElement('option');
+              opt.value = p.path;
+              opt.textContent = p.name + (p.hasBookmarks ? '' : ' (no bookmarks)');
+              select.appendChild(opt);
+            }
+          } else {
+            const opt = document.createElement('option');
+            opt.value = 'Default';
+            opt.textContent = 'Default';
+            select.appendChild(opt);
+          }
+          select.value = currentVal || (config.sync || {}).chromeProfile || 'Default';
+        }
+      } catch { /* API not ready */ }
+    }
+
+    // Sync status
+    async function updateSyncStatus() {
+      try {
+        const res = await fetch(`${API}/import/chrome/sync/status`);
+        if (res.ok) {
+          const data = await res.json();
+          const statusEl = document.getElementById('sync-status-text');
+          if (data.syncing) {
+            statusEl.textContent = `Active — syncing with ${data.profile || 'Chrome'}`;
+            statusEl.style.color = 'var(--success)';
+          } else {
+            statusEl.textContent = 'Not active';
+            statusEl.style.color = 'var(--text-dim)';
+          }
+        }
+      } catch { /* API not ready */ }
+    }
+
+    // Manual sync button
+    document.getElementById('btn-syncNow').addEventListener('click', async () => {
+      try {
+        const res = await fetch(`${API}/import/chrome/bookmarks`, { method: 'POST' });
+        if (res.ok) {
+          const data = await res.json();
+          showToast(`${data.count || 0} bookmarks synced ✓`);
+        } else {
+          showToast('Sync failed ✕');
+        }
+      } catch { showToast('Sync failed ✕'); }
+    });
+
+    // ═══ Autonomy settings ═══
+    let autonomyConfig = {};
+
+    async function loadAutonomy() {
+      try {
+        const res = await fetch(`${API}/autonomy`);
+        if (res.ok) autonomyConfig = await res.json();
+      } catch { /* API not ready */ }
+      applyAutonomyToUI();
+    }
+
+    function applyAutonomyToUI() {
+      setChecked('cfg-autoApproveRead', autonomyConfig.autoApproveRead !== false);
+      setChecked('cfg-autoApproveNavigate', autonomyConfig.autoApproveNavigate !== false);
+      setChecked('cfg-autoApproveClick', !!autonomyConfig.autoApproveClick);
+      setChecked('cfg-autoApproveType', !!autonomyConfig.autoApproveType);
+      setChecked('cfg-autoApproveForms', !!autonomyConfig.autoApproveForms);
+      const sitesEl = document.getElementById('cfg-trustedSites');
+      if (sitesEl && autonomyConfig.trustedSites) {
+        sitesEl.value = autonomyConfig.trustedSites.join('\n');
+      }
+    }
+
+    async function saveAutonomy(patch) {
+      try {
+        const res = await fetch(`${API}/autonomy`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(patch),
+        });
+        if (res.ok) {
+          autonomyConfig = await res.json();
+          showToast('Saved ✓');
+        }
+      } catch { showToast('Save failed ✕'); }
+    }
+
+    // Autonomy toggle handlers
+    for (const [id, key] of [
+      ['cfg-autoApproveRead', 'autoApproveRead'],
+      ['cfg-autoApproveNavigate', 'autoApproveNavigate'],
+      ['cfg-autoApproveClick', 'autoApproveClick'],
+      ['cfg-autoApproveType', 'autoApproveType'],
+      ['cfg-autoApproveForms', 'autoApproveForms'],
+    ]) {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('change', (e) => saveAutonomy({ [key]: e.target.checked }));
+    }
+
+    // Trusted sites textarea
+    const trustedSitesEl = document.getElementById('cfg-trustedSites');
+    if (trustedSitesEl) {
+      trustedSitesEl.addEventListener('change', () => {
+        const sites = trustedSitesEl.value.split('\n').map(s => s.trim()).filter(Boolean);
+        saveAutonomy({ trustedSites: sites });
+      });
+    }
+
+    // ═══ Extensions ═══
+
+    // Tab switching
+    document.querySelectorAll('#ext-tabs button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#ext-tabs button').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.ext-tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        const target = document.getElementById(btn.dataset.tab);
+        if (target) target.classList.add('active');
+        // Load data on tab switch
+        if (btn.dataset.tab === 'ext-installed') loadExtInstalled();
+        else if (btn.dataset.tab === 'ext-chrome') loadExtChrome();
+        else if (btn.dataset.tab === 'ext-gallery') loadExtGallery();
+      });
+    });
+
+    // ── Installed tab ──
+    let updateStatusCache = {}; // extensionId → { latestKnownVersion, updateAvailable }
+    let updateStatusLoading = false; // prevent infinite loop between loadExtInstalled ↔ loadUpdateStatus
+
+    async function loadExtInstalled() {
+      const container = document.getElementById('ext-installed-list');
+      const updateHeader = document.getElementById('ext-update-header');
+      container.innerHTML = '<div class="ext-empty">Loading...</div>';
+      try {
+        const res = await fetch(`${API}/extensions/list`);
+        if (!res.ok) throw new Error('Failed to load');
+        const data = await res.json();
+        const { loaded, available } = data;
+        if (available.length === 0) {
+          updateHeader.style.display = 'none';
+          container.innerHTML = '<div class="ext-empty">No extensions installed yet. Use the Gallery tab to discover extensions.</div>';
+          return;
+        }
+
+        // Show update header for installed extensions
+        updateHeader.style.display = 'flex';
+
+        // Fetch update status (non-blocking — use cached data if available)
+        if (!updateStatusLoading) {
+          loadUpdateStatus();
+        }
+
+        // Build a map of loaded extensions by path for status lookup
+        const loadedByPath = {};
+        for (const ext of loaded) {
+          loadedByPath[ext.path] = ext;
+        }
+        container.innerHTML = '';
+        for (const ext of available) {
+          const loadedExt = loadedByPath[ext.path];
+          const isLoaded = !!loadedExt;
+          const hasManifest = ext.hasManifest;
+          const diskId = ext.path.split('/').pop();
+          const version = loadedExt ? loadedExt.version : '';
+          const name = ext.name || diskId;
+
+          let statusBadge = '';
+          if (!hasManifest) {
+            statusBadge = '<span class="ext-badge ext-badge-error">Error</span>';
+          } else if (isLoaded) {
+            statusBadge = '<span class="ext-badge ext-badge-loaded">Loaded</span>';
+          } else {
+            statusBadge = '<span class="ext-badge ext-badge-notloaded">Not loaded</span>';
+          }
+
+          // Update badge from cache
+          let updateBadge = '';
+          const updateInfo = updateStatusCache[diskId];
+          if (updateInfo && updateInfo.updateAvailable) {
+            updateBadge = `<span class="ext-badge ext-badge-update">Update: v${esc(version)} → v${esc(updateInfo.latestKnownVersion)}</span>`;
+          }
+
+          const card = document.createElement('div');
+          card.className = 'ext-card';
+          card.innerHTML = `
+            <div class="ext-card-info">
+              <div class="ext-card-name">${esc(name)}</div>
+              <div class="ext-card-meta">
+                ${version ? '<span>v' + esc(version) + '</span>' : ''}
+                <span style="opacity:0.5">${esc(diskId)}</span>
+                ${statusBadge}
+                ${updateBadge}
+              </div>
+            </div>
+            <div class="ext-card-actions">
+              ${updateInfo && updateInfo.updateAvailable ? `<button class="btn-sm btn-primary ext-update-btn" data-id="${esc(diskId)}">Update</button>` : ''}
+              <button class="btn-sm btn-danger ext-remove-btn" data-id="${esc(diskId)}">Remove</button>
+            </div>
+          `;
+          container.appendChild(card);
+        }
+
+        // Wire update buttons
+        container.querySelectorAll('.ext-update-btn').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const id = btn.dataset.id;
+            btn.disabled = true;
+            btn.textContent = 'Updating...';
+            try {
+              const res = await fetch(`${API}/extensions/updates/apply`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ extensionId: id }),
+              });
+              const data = await res.json();
+              if (data.results && data.results[0] && data.results[0].success) {
+                showToast(`Updated ${data.results[0].name}: v${data.results[0].previousVersion} → v${data.results[0].newVersion}`);
+                delete updateStatusCache[id];
+                loadExtInstalled();
+              } else {
+                const err = data.results?.[0]?.error || 'Update failed';
+                showToast(err);
+                btn.disabled = false;
+                btn.textContent = 'Update';
+              }
+            } catch {
+              showToast('Update failed');
+              btn.disabled = false;
+              btn.textContent = 'Update';
+            }
+          });
+        });
+
+        // Wire remove buttons
+        container.querySelectorAll('.ext-remove-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const id = btn.dataset.id;
+            showModal('Remove extension?', `This will uninstall "${id}" and remove its files.`, async () => {
+              btn.disabled = true;
+              btn.textContent = 'Removing...';
+              try {
+                const res = await fetch(`${API}/extensions/uninstall/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                  showToast('Extension removed');
+                  loadExtInstalled();
+                } else {
+                  const err = await res.json().catch(() => ({}));
+                  showToast(err.error || 'Remove failed');
+                  btn.disabled = false;
+                  btn.textContent = 'Remove';
+                }
+              } catch {
+                showToast('Remove failed');
+                btn.disabled = false;
+                btn.textContent = 'Remove';
+              }
+            });
+          });
+        });
+      } catch {
+        container.innerHTML = '<div class="ext-empty">Failed to load extensions.</div>';
+      }
+    }
+
+    // Load update status from API (background, non-blocking)
+    async function loadUpdateStatus() {
+      if (updateStatusLoading) return;
+      updateStatusLoading = true;
+      const statusText = document.getElementById('ext-update-status-text');
+      const updateAllBtn = document.getElementById('ext-update-all-btn');
+      try {
+        const res = await fetch(`${API}/extensions/updates/status`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const prevCache = JSON.stringify(updateStatusCache);
+        updateStatusCache = data.extensions || {};
+        const updatesAvailable = Object.values(updateStatusCache).filter(e => e.updateAvailable).length;
+        // Update tab badge
+        const installedTab = document.querySelector('#ext-tabs button[data-tab="ext-installed"]');
+        if (installedTab) {
+          installedTab.textContent = updatesAvailable > 0 ? `Installed (${updatesAvailable})` : 'Installed';
+        }
+
+        if (updatesAvailable > 0) {
+          statusText.textContent = `${updatesAvailable} update${updatesAvailable > 1 ? 's' : ''} available`;
+          updateAllBtn.style.display = '';
+        } else if (data.lastCheck) {
+          const ago = timeSince(new Date(data.lastCheck));
+          statusText.textContent = `All up to date (checked ${ago})`;
+          updateAllBtn.style.display = 'none';
+        } else {
+          statusText.textContent = 'Updates not checked yet';
+          updateAllBtn.style.display = 'none';
+        }
+        // Re-render installed list to show update badges only if cache changed
+        if (JSON.stringify(updateStatusCache) !== prevCache) {
+          updateStatusLoading = true; // keep flag true during re-render
+          loadExtInstalled();
+        }
+      } catch { /* ignore */ }
+      updateStatusLoading = false;
+    }
+
+    function timeSince(date) {
+      const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+      if (seconds < 60) return 'just now';
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 60) return `${minutes}m ago`;
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return `${hours}h ago`;
+      const days = Math.floor(hours / 24);
+      return `${days}d ago`;
+    }
+
+    // Wire Check for Updates button
+    document.getElementById('ext-check-updates-btn').addEventListener('click', async function() {
+      this.disabled = true;
+      this.textContent = 'Checking...';
+      const statusText = document.getElementById('ext-update-status-text');
+      statusText.textContent = 'Checking for updates...';
+      try {
+        const res = await fetch(`${API}/extensions/updates/check`);
+        if (!res.ok) throw new Error('Check failed');
+        const data = await res.json();
+        const updatesAvailable = data.updatesAvailable ? data.updatesAvailable.length : 0;
+        // Update cache from check results
+        if (data.results) {
+          for (const r of data.results) {
+            updateStatusCache[r.extensionId] = {
+              installedVersion: r.installedVersion,
+              latestKnownVersion: r.latestVersion,
+              updateAvailable: r.updateAvailable,
+            };
+          }
+        }
+        if (updatesAvailable > 0) {
+          showToast(`${updatesAvailable} update${updatesAvailable > 1 ? 's' : ''} available`);
+        } else {
+          showToast(`All ${data.checked} extensions are up to date`);
+        }
+        loadExtInstalled();
+      } catch {
+        showToast('Update check failed');
+      }
+      this.disabled = false;
+      this.textContent = 'Check for Updates';
+    });
+
+    // Wire Update All button
+    document.getElementById('ext-update-all-btn').addEventListener('click', async function() {
+      this.disabled = true;
+      this.textContent = 'Updating...';
+      try {
+        const res = await fetch(`${API}/extensions/updates/apply`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        });
+        const data = await res.json();
+        const results = data.results || [];
+        const success = results.filter(r => r.success).length;
+        const failed = results.filter(r => !r.success).length;
+        if (success > 0) {
+          showToast(`${success} extension${success > 1 ? 's' : ''} updated${failed > 0 ? `, ${failed} failed` : ''}`);
+        } else if (failed > 0) {
+          showToast(`${failed} update${failed > 1 ? 's' : ''} failed`);
+        } else {
+          showToast('No updates to apply');
+        }
+        updateStatusCache = {};
+        loadExtInstalled();
+      } catch {
+        showToast('Update failed');
+      }
+      this.disabled = false;
+      this.textContent = 'Update All';
+    });
+
+    // ── From Chrome tab ──
+    async function loadExtChrome() {
+      const container = document.getElementById('ext-chrome-list');
+      container.innerHTML = '<div class="ext-empty">Loading...</div>';
+      try {
+        const res = await fetch(`${API}/extensions/chrome/list`);
+        if (!res.ok) throw new Error('Failed to load');
+        const data = await res.json();
+        if (!data.chromeDir) {
+          container.innerHTML = '<div class="ext-empty">Chrome not found on this system.</div>';
+          return;
+        }
+        if (!data.extensions || data.extensions.length === 0) {
+          container.innerHTML = '<div class="ext-empty">No extensions found in Chrome.</div>';
+          return;
+        }
+        container.innerHTML = '';
+        for (const ext of data.extensions) {
+          const card = document.createElement('div');
+          card.className = 'ext-card';
+          card.innerHTML = `
+            <div class="ext-card-info">
+              <div class="ext-card-name">${esc(ext.name)}</div>
+              <div class="ext-card-meta">
+                ${ext.version ? '<span>v' + esc(ext.version) + '</span>' : ''}
+              </div>
+            </div>
+            <div class="ext-card-actions">
+              ${ext.alreadyImported
+                ? '<span class="ext-badge ext-badge-imported">Imported</span>'
+                : '<button class="btn-sm btn-primary ext-chrome-import-btn" data-id="' + esc(ext.id) + '">Import</button>'
+              }
+            </div>
+          `;
+          container.appendChild(card);
+        }
+        // Wire import buttons
+        container.querySelectorAll('.ext-chrome-import-btn').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="ext-spinner"></span>';
+            try {
+              const res = await fetch(`${API}/extensions/chrome/import`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ extensionId: btn.dataset.id }),
+              });
+              if (res.ok) {
+                btn.outerHTML = '<span class="ext-badge ext-badge-imported">Imported</span>';
+                showToast('Extension imported');
+              } else {
+                const err = await res.json().catch(() => ({}));
+                btn.disabled = false;
+                btn.textContent = 'Import';
+                showToast(err.error || 'Import failed');
+              }
+            } catch {
+              btn.disabled = false;
+              btn.textContent = 'Import';
+              showToast('Import failed');
+            }
+          });
+        });
+      } catch {
+        container.innerHTML = '<div class="ext-empty">Failed to load Chrome extensions.</div>';
+      }
+    }
+
+    // Import All button
+    document.getElementById('ext-chrome-import-all').addEventListener('click', async () => {
+      const btn = document.getElementById('ext-chrome-import-all');
+      btn.disabled = true;
+      btn.textContent = 'Importing...';
+      try {
+        const res = await fetch(`${API}/extensions/chrome/import`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ all: true }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          showToast(`${data.imported || 0} imported, ${data.skipped || 0} skipped`);
+          loadExtChrome();
+        } else {
+          showToast('Import failed');
+        }
+      } catch {
+        showToast('Import failed');
+      }
+      btn.disabled = false;
+      btn.textContent = 'Import All';
+    });
+
+    // ── Gallery tab ──
+    let galleryActiveCategory = null;
+
+    async function loadExtGallery(category) {
+      galleryActiveCategory = category || null;
+      const container = document.getElementById('ext-gallery-list');
+      const filtersContainer = document.getElementById('ext-gallery-filters');
+      container.innerHTML = '<div class="ext-empty">Loading...</div>';
+      try {
+        const url = new URL(`${API}/extensions/gallery`);
+        if (category) url.searchParams.set('category', category);
+        const res = await fetch(url.toString());
+        if (!res.ok) throw new Error('Failed to load');
+        const data = await res.json();
+        // Render category filters
+        const allCategories = data.categories || [];
+        filtersContainer.innerHTML = '';
+        const allPill = document.createElement('button');
+        allPill.className = 'ext-category-pill' + (!category ? ' active' : '');
+        allPill.textContent = 'All';
+        allPill.addEventListener('click', () => loadExtGallery(null));
+        filtersContainer.appendChild(allPill);
+        for (const cat of allCategories) {
+          const pill = document.createElement('button');
+          pill.className = 'ext-category-pill' + (category === cat ? ' active' : '');
+          pill.textContent = cat.charAt(0).toUpperCase() + cat.slice(1);
+          pill.addEventListener('click', () => loadExtGallery(cat));
+          filtersContainer.appendChild(pill);
+        }
+        // Render extensions — featured first
+        const extensions = (data.extensions || []).sort((a, b) => {
+          if (a.featured && !b.featured) return -1;
+          if (!a.featured && b.featured) return 1;
+          return 0;
+        });
+        if (extensions.length === 0) {
+          container.innerHTML = '<div class="ext-empty">No extensions found.</div>';
+          return;
+        }
+        container.innerHTML = '';
+        for (const ext of extensions) {
+          let compatBadge = '';
+          if (ext.compatibility === 'works') compatBadge = '<span class="ext-badge ext-badge-works">Works</span>';
+          else if (ext.compatibility === 'partial') compatBadge = '<span class="ext-badge ext-badge-partial">Partial</span>';
+          else if (ext.compatibility === 'needs-work') compatBadge = '<span class="ext-badge ext-badge-needs-work">Needs Setup</span>';
+
+          let conflictBadge = '';
+          if (ext.securityConflict === 'dnr-overlap') conflictBadge = '<span class="ext-badge ext-badge-dnr">DNR Overlap</span>';
+          else if (ext.securityConflict === 'native-messaging') conflictBadge = '<span class="ext-badge ext-badge-native">Native Messaging</span>';
+
+          const featuredBadge = ext.featured ? '<span class="ext-badge ext-badge-featured">Featured</span>' : '';
+
+          const card = document.createElement('div');
+          card.className = 'ext-card';
+          card.innerHTML = `
+            <div class="ext-card-info">
+              <div class="ext-card-name">${esc(ext.name)}</div>
+              <div class="ext-card-desc">${esc(ext.description)}</div>
+              <div class="ext-card-meta">
+                ${featuredBadge}
+                ${compatBadge}
+                ${conflictBadge}
+              </div>
+            </div>
+            <div class="ext-card-actions">
+              ${ext.installed
+                ? '<span class="ext-badge ext-badge-installed">Installed</span>'
+                : '<button class="btn-sm btn-primary ext-gallery-install-btn" data-id="' + esc(ext.id) + '">Install</button>'
+              }
+            </div>
+          `;
+          container.appendChild(card);
+        }
+        // Wire install buttons
+        container.querySelectorAll('.ext-gallery-install-btn').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            const originalText = btn.textContent;
+            btn.innerHTML = '<span class="ext-spinner"></span>';
+            // Add error container
+            const card = btn.closest('.ext-card');
+            let errEl = card.querySelector('.ext-error-msg');
+            if (errEl) errEl.remove();
+            try {
+              const res = await fetch(`${API}/extensions/install`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ input: btn.dataset.id }),
+              });
+              if (res.ok) {
+                btn.outerHTML = '<span class="ext-badge ext-badge-installed">Installed</span>';
+                showToast('Extension installed');
+              } else {
+                const err = await res.json().catch(() => ({}));
+                btn.disabled = false;
+                btn.textContent = originalText;
+                errEl = document.createElement('div');
+                errEl.className = 'ext-error-msg';
+                errEl.textContent = err.error || 'Install failed';
+                card.querySelector('.ext-card-info').appendChild(errEl);
+              }
+            } catch {
+              btn.disabled = false;
+              btn.textContent = originalText;
+              errEl = document.createElement('div');
+              errEl.className = 'ext-error-msg';
+              errEl.textContent = 'Install failed — check connection';
+              card.querySelector('.ext-card-info').appendChild(errEl);
+            }
+          });
+        });
+      } catch {
+        container.innerHTML = '<div class="ext-empty">Failed to load gallery.</div>';
+      }
+    }
+
+    // HTML escape helper
+    function esc(str) {
+      if (!str) return '';
+      const d = document.createElement('div');
+      d.textContent = str;
+      return d.innerHTML;
+    }
+
+    // ═══ Init ═══
+    loadConfig();
+    loadAutonomy();
+    loadBehaviorStats();
+    loadChromeProfiles();
+    updateSyncStatus();
+    loadExtInstalled();
+    // Refresh stats every 10s
+    setInterval(loadBehaviorStats, 10000);
+  </script>
+</body>
+</html>

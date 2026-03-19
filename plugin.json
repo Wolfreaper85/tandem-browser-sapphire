@@ -1,0 +1,27 @@
+{
+  "name": "tandem-browser",
+  "version": "1.0.0",
+  "description": "Tandem Browser — browse the web, take screenshots, interact with pages via local AI browser",
+  "author": "sapphire",
+  "url": "https://github.com/hydro13/tandem-browser",
+  "priority": 50,
+  "capabilities": {
+    "tools": ["tools/tandem.py"],
+    "settings": [
+      {
+        "key": "api_url",
+        "type": "string",
+        "label": "Tandem API URL",
+        "default": "http://127.0.0.1:8765",
+        "help": "Local Tandem Browser API endpoint"
+      },
+      {
+        "key": "token_file",
+        "type": "string",
+        "label": "API Token File",
+        "default": "~/.tandem/api-token",
+        "help": "Path to the Tandem API token file"
+      }
+    ]
+  }
+}

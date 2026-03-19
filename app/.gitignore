@@ -1,0 +1,10 @@
+node_modules/
+dist/
+release/
+*.lock
+*.log
+.playwright-mcp/
+src/security/blocklists/data/
+
+# Native binaries (compiled locally)
+native/speech/tandem-speech
