@@ -8,8 +8,10 @@ Tandem Browser API.
 import json
 import logging
 import os
+import platform
 import ssl
 import subprocess
+import sys
 import threading
 import time
 import urllib.request
@@ -17,6 +19,42 @@ import urllib.error
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+# ── Platform detection ──
+IS_WINDOWS = sys.platform == "win32"
+IS_MAC = sys.platform == "darwin"
+IS_LINUX = sys.platform.startswith("linux")
+
+
+def _get_electron_path(app_dir):
+    """Get the Electron executable path for the current platform."""
+    if IS_WINDOWS:
+        return app_dir / "node_modules" / "electron" / "dist" / "electron.exe"
+    elif IS_MAC:
+        return app_dir / "node_modules" / "electron" / "dist" / "Electron.app" / "Contents" / "MacOS" / "Electron"
+    else:
+        return app_dir / "node_modules" / "electron" / "dist" / "electron"
+
+
+def _get_node_exe_name():
+    """Get the node executable name for the current platform."""
+    return "node.exe" if IS_WINDOWS else "node"
+
+
+def _get_npm_cmd(node_dir):
+    """Get the npm command for the current platform."""
+    if IS_WINDOWS and (node_dir / "npm.cmd").exists():
+        return str(node_dir / "npm.cmd")
+    elif not IS_WINDOWS and (node_dir / "bin" / "npm").exists():
+        return str(node_dir / "bin" / "npm")
+    return "npm"
+
+
+def _get_popen_flags():
+    """Get platform-specific Popen flags."""
+    if IS_WINDOWS:
+        return {"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)}
+    return {}
 
 
 # ═══════════════════════════════════════════════════════════
@@ -467,17 +505,22 @@ def _ensure_node_available(app_dir):
 
     # Check if we already downloaded portable Node.js
     node_dir = app_dir / "node"
-    node_exe = node_dir / "node.exe"
+    node_exe_name = _get_node_exe_name()
+    # On Windows the exe is in the root, on Unix it's in bin/
+    if IS_WINDOWS:
+        node_exe = node_dir / node_exe_name
+    else:
+        node_exe = node_dir / "bin" / node_exe_name
     if node_exe.exists():
         # Add to PATH for this process so npm/electron can find it
-        os.environ["PATH"] = str(node_dir) + os.pathsep + os.environ.get("PATH", "")
+        path_dir = str(node_dir) if IS_WINDOWS else str(node_dir / "bin")
+        os.environ["PATH"] = path_dir + os.pathsep + os.environ.get("PATH", "")
         logger.info(f"Using portable Node.js from {node_dir}")
         return True
 
     # Download portable Node.js
     NODE_VERSION = "v22.14.0"
     # Detect architecture
-    import platform
     arch = platform.machine().lower()
     if arch in ("amd64", "x86_64", "x64"):
         arch_name = "x64"
@@ -486,20 +529,27 @@ def _ensure_node_available(app_dir):
     else:
         arch_name = "x64"  # Default to x64
 
-    zip_name = f"node-{NODE_VERSION}-win-{arch_name}.zip"
-    download_url = f"https://nodejs.org/dist/{NODE_VERSION}/{zip_name}"
+    # Platform-specific download URL and format
+    if IS_WINDOWS:
+        archive_name = f"node-{NODE_VERSION}-win-{arch_name}.zip"
+    elif IS_MAC:
+        archive_name = f"node-{NODE_VERSION}-darwin-{arch_name}.tar.gz"
+    else:
+        archive_name = f"node-{NODE_VERSION}-linux-{arch_name}.tar.xz"
+
+    download_url = f"https://nodejs.org/dist/{NODE_VERSION}/{archive_name}"
 
     logger.info(f"Node.js not found — downloading portable Node.js {NODE_VERSION}...")
     logger.info(f"Download URL: {download_url}")
 
     try:
-        zip_path = app_dir / zip_name
+        archive_path = app_dir / archive_name
         # Download with progress
         req = urllib.request.Request(download_url)
         with urllib.request.urlopen(req, timeout=120) as resp:
             total = int(resp.headers.get("Content-Length", 0))
             downloaded = 0
-            with open(zip_path, "wb") as f:
+            with open(archive_path, "wb") as f:
                 while True:
                     chunk = resp.read(1024 * 256)  # 256KB chunks
                     if not chunk:
@@ -513,10 +563,16 @@ def _ensure_node_available(app_dir):
 
         logger.info("Download complete — extracting...")
 
-        # Extract the zip
-        extracted_dir_name = f"node-{NODE_VERSION}-win-{arch_name}"
-        with zipfile.ZipFile(zip_path, 'r') as zf:
-            zf.extractall(app_dir)
+        # Extract based on format
+        extracted_dir_name = archive_name.replace(".zip", "").replace(".tar.gz", "").replace(".tar.xz", "")
+
+        if IS_WINDOWS:
+            with zipfile.ZipFile(archive_path, 'r') as zf:
+                zf.extractall(app_dir)
+        else:
+            import tarfile
+            with tarfile.open(archive_path, 'r:*') as tf:
+                tf.extractall(app_dir)
 
         # Rename extracted folder to just "node"
         extracted_path = app_dir / extracted_dir_name
@@ -526,11 +582,12 @@ def _ensure_node_available(app_dir):
                 shutil.rmtree(node_dir)
             extracted_path.rename(node_dir)
 
-        # Clean up zip
-        zip_path.unlink()
+        # Clean up archive
+        archive_path.unlink()
 
         # Add to PATH for this process
-        os.environ["PATH"] = str(node_dir) + os.pathsep + os.environ.get("PATH", "")
+        path_dir = str(node_dir) if IS_WINDOWS else str(node_dir / "bin")
+        os.environ["PATH"] = path_dir + os.pathsep + os.environ.get("PATH", "")
 
         # Verify
         result = subprocess.run([str(node_exe), "--version"], capture_output=True, timeout=10)
@@ -544,9 +601,9 @@ def _ensure_node_available(app_dir):
     except Exception as e:
         logger.error(f"Failed to download portable Node.js: {e}")
         # Clean up partial download
-        zip_path = app_dir / zip_name
-        if zip_path.exists():
-            zip_path.unlink()
+        archive_path = app_dir / archive_name
+        if archive_path.exists():
+            archive_path.unlink()
         return False
 
 
@@ -555,8 +612,7 @@ def _auto_install_tandem(app_dir):
     if not (app_dir / "package.json").exists():
         return False
 
-    node_modules = app_dir / "node_modules"
-    electron_exe = node_modules / "electron" / "dist" / "electron.exe"
+    electron_exe = _get_electron_path(app_dir)
 
     if electron_exe.exists():
         return True  # Already installed
@@ -568,12 +624,12 @@ def _auto_install_tandem(app_dir):
 
     # Determine npm command — use portable if available
     node_dir = app_dir / "node"
-    if (node_dir / "npm.cmd").exists():
-        npm_cmd = str(node_dir / "npm.cmd")
-    else:
-        npm_cmd = "npm"
+    npm_cmd = _get_npm_cmd(node_dir)
 
     logger.info("First run — installing Tandem Browser dependencies (this may take a minute)...")
+
+    # shell=True needed on Windows for npm.cmd, not needed on Unix
+    use_shell = IS_WINDOWS
 
     try:
         # Run npm install
@@ -582,7 +638,7 @@ def _auto_install_tandem(app_dir):
             cwd=str(app_dir),
             capture_output=True,
             timeout=300,  # 5 minute timeout
-            shell=True
+            shell=use_shell
         )
         if install.returncode != 0:
             logger.error(f"npm install failed: {install.stderr.decode()[:500]}")
@@ -595,7 +651,7 @@ def _auto_install_tandem(app_dir):
             cwd=str(app_dir),
             capture_output=True,
             timeout=120,
-            shell=True
+            shell=use_shell
         )
         if compile_result.returncode != 0:
             logger.error(f"TypeScript compile failed: {compile_result.stderr.decode()[:500]}")
@@ -617,7 +673,7 @@ def _find_tandem_app():
     if not app_dir.exists():
         return None
 
-    electron_exe = app_dir / "node_modules" / "electron" / "dist" / "electron.exe"
+    electron_exe = _get_electron_path(app_dir)
     if electron_exe.exists():
         return app_dir
 
@@ -666,7 +722,7 @@ def _ensure_tandem_running():
         return False
 
     _launch_in_progress = True
-    electron_exe = app_dir / "node_modules" / "electron" / "dist" / "electron.exe"
+    electron_exe = _get_electron_path(app_dir)
     logger.info(f"Auto-launching Tandem Browser from {app_dir}")
 
     env = os.environ.copy()
@@ -680,7 +736,7 @@ def _ensure_tandem_running():
             env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            **_get_popen_flags()
         )
         # Wait for API to become ready
         for _ in range(15):
