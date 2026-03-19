@@ -924,7 +924,13 @@ def _get_config():
 
 def _api_request(endpoint, method="GET", data=None, timeout=30):
     """Make a request to the Tandem API. Auto-launches Tandem if needed."""
-    _ensure_tandem_running()
+    if not _ensure_tandem_running():
+        # Check if Node.js is the issue
+        try:
+            subprocess.run(["node", "--version"], capture_output=True, timeout=5)
+        except Exception:
+            return {"error": "Tandem Browser requires Node.js v20+ which is not installed. Please install it from https://nodejs.org/ and restart Sapphire."}
+        return {"error": "Tandem Browser could not be started. Check that the plugin's app/ folder contains the full Tandem Browser source code."}
     api_url, token = _get_config()
     url = f"{api_url}{endpoint}"
 
