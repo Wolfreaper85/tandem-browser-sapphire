@@ -1226,15 +1226,32 @@ def browse_url(url, new_tab=False):
         return result["error"]
 
     # Wait for page to actually load (up to 8 seconds)
-    for _ in range(8):
+    # Extract target domain for matching (handles redirects like facebook.com → www.facebook.com)
+    try:
+        target_domain = url.split("//")[-1].split("/")[0].replace("www.", "").lower()
+    except Exception:
+        target_domain = ""
+
+    for attempt in range(8):
         time.sleep(1)
         page = _api_request("/page-content", timeout=10)
         if isinstance(page, dict) and not page.get("error"):
-            current_url = page.get("url", "")
-            # Check if we've actually navigated away from the old page
-            if current_url and (url.split("//")[-1].split("/")[0] in current_url):
-                title = page.get("title", "")
+            current_url = (page.get("url", "") or "").lower()
+            page_text = page.get("text", "") or ""
+            title = page.get("title", "") or ""
+
+            # Skip blank/about:blank pages
+            if not current_url or current_url in ("about:blank", ""):
+                continue
+
+            # Check domain match (strip www for comparison)
+            current_domain = current_url.split("//")[-1].split("/")[0].replace("www.", "")
+            if target_domain and target_domain in current_domain:
+                # Page loaded — but warn if content is empty (might still be loading)
+                if not page_text.strip() and attempt < 5:
+                    continue  # Give it more time to render
                 return f"Navigated to: {title}\nURL: {current_url}\n(Page loaded successfully)"
+
     # Navigation failed — reset to DuckDuckGo home
     _api_request("/navigate", method="POST", data={"url": "https://duckduckgo.com"})
     return f"Navigation to {url} failed. Browser has been reset to DuckDuckGo. Try again with tandem_browse or tandem_search."
