@@ -452,6 +452,104 @@ def _send_to_sapphire(base_url, text, ssl_ctx, api_key):
 _tandem_process = None
 _launch_in_progress = False
 
+def _ensure_node_available(app_dir):
+    """Ensure Node.js is available — download portable version if needed."""
+    import zipfile
+
+    # First check if Node.js is already on PATH
+    try:
+        result = subprocess.run(["node", "--version"], capture_output=True, timeout=10)
+        if result.returncode == 0:
+            logger.info(f"Found system Node.js {result.stdout.decode().strip()}")
+            return True  # System Node.js works fine
+    except Exception:
+        pass
+
+    # Check if we already downloaded portable Node.js
+    node_dir = app_dir / "node"
+    node_exe = node_dir / "node.exe"
+    if node_exe.exists():
+        # Add to PATH for this process so npm/electron can find it
+        os.environ["PATH"] = str(node_dir) + os.pathsep + os.environ.get("PATH", "")
+        logger.info(f"Using portable Node.js from {node_dir}")
+        return True
+
+    # Download portable Node.js
+    NODE_VERSION = "v22.14.0"
+    # Detect architecture
+    import platform
+    arch = platform.machine().lower()
+    if arch in ("amd64", "x86_64", "x64"):
+        arch_name = "x64"
+    elif arch in ("arm64", "aarch64"):
+        arch_name = "arm64"
+    else:
+        arch_name = "x64"  # Default to x64
+
+    zip_name = f"node-{NODE_VERSION}-win-{arch_name}.zip"
+    download_url = f"https://nodejs.org/dist/{NODE_VERSION}/{zip_name}"
+
+    logger.info(f"Node.js not found — downloading portable Node.js {NODE_VERSION}...")
+    logger.info(f"Download URL: {download_url}")
+
+    try:
+        zip_path = app_dir / zip_name
+        # Download with progress
+        req = urllib.request.Request(download_url)
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            total = int(resp.headers.get("Content-Length", 0))
+            downloaded = 0
+            with open(zip_path, "wb") as f:
+                while True:
+                    chunk = resp.read(1024 * 256)  # 256KB chunks
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    downloaded += len(chunk)
+                    if total > 0:
+                        pct = int(downloaded / total * 100)
+                        if pct % 25 == 0:
+                            logger.info(f"Downloading Node.js... {pct}%")
+
+        logger.info("Download complete — extracting...")
+
+        # Extract the zip
+        extracted_dir_name = f"node-{NODE_VERSION}-win-{arch_name}"
+        with zipfile.ZipFile(zip_path, 'r') as zf:
+            zf.extractall(app_dir)
+
+        # Rename extracted folder to just "node"
+        extracted_path = app_dir / extracted_dir_name
+        if extracted_path.exists():
+            if node_dir.exists():
+                import shutil
+                shutil.rmtree(node_dir)
+            extracted_path.rename(node_dir)
+
+        # Clean up zip
+        zip_path.unlink()
+
+        # Add to PATH for this process
+        os.environ["PATH"] = str(node_dir) + os.pathsep + os.environ.get("PATH", "")
+
+        # Verify
+        result = subprocess.run([str(node_exe), "--version"], capture_output=True, timeout=10)
+        if result.returncode == 0:
+            logger.info(f"Portable Node.js {result.stdout.decode().strip()} ready")
+            return True
+        else:
+            logger.error("Downloaded Node.js but it failed to run")
+            return False
+
+    except Exception as e:
+        logger.error(f"Failed to download portable Node.js: {e}")
+        # Clean up partial download
+        zip_path = app_dir / zip_name
+        if zip_path.exists():
+            zip_path.unlink()
+        return False
+
+
 def _auto_install_tandem(app_dir):
     """Auto-install npm dependencies and compile TypeScript on first run."""
     if not (app_dir / "package.json").exists():
@@ -463,23 +561,24 @@ def _auto_install_tandem(app_dir):
     if electron_exe.exists():
         return True  # Already installed
 
-    # Check Node.js is available
-    try:
-        result = subprocess.run(["node", "--version"], capture_output=True, timeout=10)
-        if result.returncode != 0:
-            logger.error("Node.js not found. Install Node.js v20+ from https://nodejs.org")
-            return False
-        logger.info(f"Found Node.js {result.stdout.decode().strip()}")
-    except Exception:
-        logger.error("Node.js not found. Install Node.js v20+ from https://nodejs.org")
+    # Ensure Node.js is available (download if needed)
+    if not _ensure_node_available(app_dir):
+        logger.error("Could not get Node.js — installation cannot proceed")
         return False
+
+    # Determine npm command — use portable if available
+    node_dir = app_dir / "node"
+    if (node_dir / "npm.cmd").exists():
+        npm_cmd = str(node_dir / "npm.cmd")
+    else:
+        npm_cmd = "npm"
 
     logger.info("First run — installing Tandem Browser dependencies (this may take a minute)...")
 
     try:
         # Run npm install
         install = subprocess.run(
-            ["npm", "install"],
+            [npm_cmd, "install"],
             cwd=str(app_dir),
             capture_output=True,
             timeout=300,  # 5 minute timeout
@@ -492,7 +591,7 @@ def _auto_install_tandem(app_dir):
 
         # Compile TypeScript
         compile_result = subprocess.run(
-            ["npm", "run", "compile"],
+            [npm_cmd, "run", "compile"],
             cwd=str(app_dir),
             capture_output=True,
             timeout=120,
@@ -925,12 +1024,7 @@ def _get_config():
 def _api_request(endpoint, method="GET", data=None, timeout=30):
     """Make a request to the Tandem API. Auto-launches Tandem if needed."""
     if not _ensure_tandem_running():
-        # Check if Node.js is the issue
-        try:
-            subprocess.run(["node", "--version"], capture_output=True, timeout=5)
-        except Exception:
-            return {"error": "Tandem Browser requires Node.js v20+ which is not installed. Please install it from https://nodejs.org/ and restart Sapphire."}
-        return {"error": "Tandem Browser could not be started. Check that the plugin's app/ folder contains the full Tandem Browser source code."}
+        return {"error": "Tandem Browser could not be started. Check the Sapphire logs for details. The plugin auto-downloads Node.js and dependencies on first run — ensure you have internet access."}
     api_url, token = _get_config()
     url = f"{api_url}{endpoint}"
 

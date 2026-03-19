@@ -16,7 +16,7 @@ Tandem Browser is an Electron-based AI companion browser originally built for Op
 ## Requirements
 
 - [Sapphire AI](https://github.com/SapphireAI) installed and running
-- [Node.js](https://nodejs.org/) v20 or later
+- Internet connection (first run only — downloads Node.js and dependencies automatically)
 
 ## Installation
 
@@ -32,11 +32,11 @@ Install directly from the Sapphire plugin store (if available).
 2. Restart Sapphire — the plugin will auto-install dependencies on first launch
 
 ### What Happens on First Run
-1. The plugin detects that `node_modules/` is missing
-2. Automatically runs `npm install` in the `app/` folder (takes 1-2 minutes)
+1. The plugin checks for Node.js — if not found, downloads a portable copy (~30MB) automatically
+2. Runs `npm install` in the `app/` folder to install dependencies (takes 1-2 minutes)
 3. Compiles TypeScript with `npm run compile`
 4. Launches Tandem Browser
-5. Subsequent launches are instant
+5. Subsequent launches are instant — no re-download needed
 
 ## Tool Functions
 

@@ -1,6 +1,9 @@
 # Dependencies
 app/node_modules/
 
+# Portable Node.js (auto-downloaded on first run)
+app/node/
+
 # Build output (can be regenerated with npm run compile)
 app/dist/
 
