@@ -1,8 +1,7 @@
 # Dependencies
 app/node_modules/
 
-# Portable Node.js (auto-downloaded on first run)
-app/node/
+# Portable Node.js is auto-downloaded to ~/.tandem/node/ (not in repo)
 
 # Build output (can be regenerated with npm run compile)
 app/dist/

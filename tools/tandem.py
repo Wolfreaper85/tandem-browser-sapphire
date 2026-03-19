@@ -490,46 +490,65 @@ def _send_to_sapphire(base_url, text, ssl_ctx, api_key):
 _tandem_process = None
 _launch_in_progress = False
 
+def _get_portable_node_dir():
+    """Get the shared portable Node.js directory at ~/.tandem/node/."""
+    tandem_dir = Path.home() / ".tandem"
+    tandem_dir.mkdir(parents=True, exist_ok=True)
+    return tandem_dir / "node"
+
+
+def _add_node_to_path(node_dir):
+    """Add the portable Node.js to PATH for this process."""
+    path_dir = str(node_dir) if IS_WINDOWS else str(node_dir / "bin")
+    current_path = os.environ.get("PATH", "")
+    if path_dir not in current_path:
+        os.environ["PATH"] = path_dir + os.pathsep + current_path
+
+
+def _get_node_exe_path(node_dir):
+    """Get the full path to the node executable in a portable install."""
+    if IS_WINDOWS:
+        return node_dir / _get_node_exe_name()
+    else:
+        return node_dir / "bin" / _get_node_exe_name()
+
+
 def _ensure_node_available(app_dir):
     """Ensure Node.js is available — download portable version if needed."""
     import zipfile
 
-    # First check if Node.js is already on PATH
+    # Step 1: Check if Node.js is already on system PATH
+    # Use shell=True on Windows to resolve PATH through cmd.exe
     try:
-        result = subprocess.run(["node", "--version"], capture_output=True, timeout=10)
+        result = subprocess.run(
+            ["node", "--version"],
+            capture_output=True, timeout=10,
+            shell=IS_WINDOWS
+        )
         if result.returncode == 0:
             logger.info(f"Found system Node.js {result.stdout.decode().strip()}")
-            return True  # System Node.js works fine
+            return True
     except Exception:
         pass
 
-    # Check if we already downloaded portable Node.js
-    node_dir = app_dir / "node"
-    node_exe_name = _get_node_exe_name()
-    # On Windows the exe is in the root, on Unix it's in bin/
-    if IS_WINDOWS:
-        node_exe = node_dir / node_exe_name
-    else:
-        node_exe = node_dir / "bin" / node_exe_name
+    # Step 2: Check if we already have portable Node.js at ~/.tandem/node/
+    node_dir = _get_portable_node_dir()
+    node_exe = _get_node_exe_path(node_dir)
     if node_exe.exists():
-        # Add to PATH for this process so npm/electron can find it
-        path_dir = str(node_dir) if IS_WINDOWS else str(node_dir / "bin")
-        os.environ["PATH"] = path_dir + os.pathsep + os.environ.get("PATH", "")
+        _add_node_to_path(node_dir)
         logger.info(f"Using portable Node.js from {node_dir}")
         return True
 
-    # Download portable Node.js
-    NODE_VERSION = "v22.14.0"
-    # Detect architecture
+    # Step 3: Download portable Node.js to ~/.tandem/node/
+    NODE_VERSION = "v20.18.0"
     arch = platform.machine().lower()
     if arch in ("amd64", "x86_64", "x64"):
         arch_name = "x64"
     elif arch in ("arm64", "aarch64"):
         arch_name = "arm64"
     else:
-        arch_name = "x64"  # Default to x64
+        arch_name = "x64"
 
-    # Platform-specific download URL and format
     if IS_WINDOWS:
         archive_name = f"node-{NODE_VERSION}-win-{arch_name}.zip"
     elif IS_MAC:
@@ -538,13 +557,14 @@ def _ensure_node_available(app_dir):
         archive_name = f"node-{NODE_VERSION}-linux-{arch_name}.tar.xz"
 
     download_url = f"https://nodejs.org/dist/{NODE_VERSION}/{archive_name}"
+    # Download to ~/.tandem/ (temp location during extraction)
+    tandem_dir = Path.home() / ".tandem"
+    archive_path = tandem_dir / archive_name
 
     logger.info(f"Node.js not found — downloading portable Node.js {NODE_VERSION}...")
     logger.info(f"Download URL: {download_url}")
 
     try:
-        archive_path = app_dir / archive_name
-        # Download with progress
         req = urllib.request.Request(download_url)
         with urllib.request.urlopen(req, timeout=120) as resp:
             total = int(resp.headers.get("Content-Length", 0))
@@ -568,14 +588,14 @@ def _ensure_node_available(app_dir):
 
         if IS_WINDOWS:
             with zipfile.ZipFile(archive_path, 'r') as zf:
-                zf.extractall(app_dir)
+                zf.extractall(tandem_dir)
         else:
             import tarfile
             with tarfile.open(archive_path, 'r:*') as tf:
-                tf.extractall(app_dir)
+                tf.extractall(tandem_dir)
 
         # Rename extracted folder to just "node"
-        extracted_path = app_dir / extracted_dir_name
+        extracted_path = tandem_dir / extracted_dir_name
         if extracted_path.exists():
             if node_dir.exists():
                 import shutil
@@ -585,9 +605,8 @@ def _ensure_node_available(app_dir):
         # Clean up archive
         archive_path.unlink()
 
-        # Add to PATH for this process
-        path_dir = str(node_dir) if IS_WINDOWS else str(node_dir / "bin")
-        os.environ["PATH"] = path_dir + os.pathsep + os.environ.get("PATH", "")
+        # Add to PATH
+        _add_node_to_path(node_dir)
 
         # Verify
         result = subprocess.run([str(node_exe), "--version"], capture_output=True, timeout=10)
@@ -600,8 +619,6 @@ def _ensure_node_available(app_dir):
 
     except Exception as e:
         logger.error(f"Failed to download portable Node.js: {e}")
-        # Clean up partial download
-        archive_path = app_dir / archive_name
         if archive_path.exists():
             archive_path.unlink()
         return False
@@ -622,8 +639,8 @@ def _auto_install_tandem(app_dir):
         logger.error("Could not get Node.js — installation cannot proceed")
         return False
 
-    # Determine npm command — use portable if available
-    node_dir = app_dir / "node"
+    # Determine npm command — use portable from ~/.tandem/node/ if available
+    node_dir = _get_portable_node_dir()
     npm_cmd = _get_npm_cmd(node_dir)
 
     logger.info("First run — installing Tandem Browser dependencies (this may take a minute)...")
@@ -725,9 +742,27 @@ def _ensure_tandem_running():
     electron_exe = _get_electron_path(app_dir)
     logger.info(f"Auto-launching Tandem Browser from {app_dir}")
 
+    # macOS: clear quarantine flags so Gatekeeper doesn't block Electron
+    if IS_MAC and electron_exe.exists():
+        try:
+            subprocess.run(
+                ["xattr", "-cr", str(electron_exe.parent.parent.parent)],  # Electron.app dir
+                capture_output=True, timeout=10
+            )
+            logger.info("Cleared macOS quarantine flags on Electron.app")
+        except Exception as e:
+            logger.warning(f"Could not clear quarantine flags: {e}")
+
     env = os.environ.copy()
     env.pop("ELECTRON_RUN_AS_NODE", None)
     env.pop("ATOM_SHELL_INTERNAL_RUN_AS_NODE", None)
+
+    # Ensure portable Node.js is on PATH for Electron child processes
+    node_dir = _get_portable_node_dir()
+    node_exe = _get_node_exe_path(node_dir)
+    if node_exe.exists():
+        _add_node_to_path(node_dir)
+        env["PATH"] = os.environ["PATH"]
 
     try:
         _tandem_process = subprocess.Popen(
