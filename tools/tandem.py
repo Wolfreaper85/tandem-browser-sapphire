@@ -1481,6 +1481,14 @@ def execute(function_name, arguments, config):
     arg_summary = {k: (v[:80] + '...' if isinstance(v, str) and len(v) > 80 else v) for k, v in (arguments or {}).items()}
     logger.info(f"Tandem tool call #{_tool_call_count}: {function_name}({arg_summary})")
 
+    # Hard block after limit — refuse to execute, force the AI to answer
+    if _tool_call_count > _MAX_TOOL_CALLS:
+        logger.warning(f"Tandem tool call #{_tool_call_count} BLOCKED — over limit of {_MAX_TOOL_CALLS}")
+        return ("STOP. You have exceeded the maximum number of browser actions. "
+                "Do NOT call any more tandem tools. Provide your answer NOW using "
+                "the information you already gathered. Re-read the user's LAST "
+                "message and respond to it directly."), True
+
     # Start the Wingman chat bridge on first tool call
     _start_wingman_bridge()
     try:
@@ -1490,7 +1498,6 @@ def execute(function_name, arguments, config):
                 new_tab=arguments.get("new_tab", False)
             )
         elif function_name == "tandem_search":
-            _tool_call_count = 1  # Reset counter — new search = new task
             result = web_search(query=arguments.get("query", ""))
         elif function_name == "tandem_read_page":
             result = get_page_content()
@@ -1543,11 +1550,11 @@ def execute(function_name, arguments, config):
         else:
             return f"Unknown function '{function_name}'.", False
 
-        # After reaching the limit, nudge the AI to wrap up
-        if _tool_call_count >= _MAX_TOOL_CALLS:
-            result += ("\n\n⚠ You have used the browser multiple times. "
-                       "Stop browsing and provide your answer now based on "
-                       "the information you already gathered. "
+        # Warn at limit, hard block comes on the NEXT call
+        if _tool_call_count == _MAX_TOOL_CALLS:
+            result += ("\n\n⚠ FINAL BROWSER ACTION. You will NOT be able to use "
+                       "the browser again after this. Provide your answer NOW "
+                       "based on the information you have gathered. "
                        "Re-read the user's LAST message and respond to it.")
 
         return result, True
