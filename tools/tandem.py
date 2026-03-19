@@ -678,18 +678,43 @@ def _ensure_tandem_running():
             [str(electron_exe), "."],
             cwd=str(app_dir),
             env=env,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
         )
         # Wait for API to become ready
         for _ in range(15):
             time.sleep(1)
+            # Check if process crashed
+            if _tandem_process.poll() is not None:
+                exit_code = _tandem_process.returncode
+                stderr_out = ""
+                stdout_out = ""
+                try:
+                    stderr_out = _tandem_process.stderr.read().decode("utf-8", errors="replace")[:1000]
+                    stdout_out = _tandem_process.stdout.read().decode("utf-8", errors="replace")[:500]
+                except Exception:
+                    pass
+                logger.error(f"Electron crashed on launch (exit code {exit_code})")
+                if stderr_out:
+                    logger.error(f"Electron stderr: {stderr_out}")
+                if stdout_out:
+                    logger.error(f"Electron stdout: {stdout_out}")
+                _tandem_process = None
+                _launch_in_progress = False
+                return False
             if _is_tandem_running():
                 logger.info("Tandem Browser is ready")
                 _launch_in_progress = False
                 return True
-        logger.warning("Tandem Browser launched but API not responding")
+        # Timed out — grab any output for debugging
+        logger.warning("Tandem Browser launched but API not responding after 15 seconds")
+        try:
+            stderr_peek = _tandem_process.stderr.read(1000) if _tandem_process.stderr else b""
+            if stderr_peek:
+                logger.warning(f"Electron stderr: {stderr_peek.decode('utf-8', errors='replace')}")
+        except Exception:
+            pass
         _launch_in_progress = False
         return False
     except Exception as e:
