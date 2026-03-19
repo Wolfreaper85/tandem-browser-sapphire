@@ -66,6 +66,7 @@ _bridge_thread = None
 _bridge_running = False
 _has_navigated = False  # Track if AI has navigated in this session
 _tool_call_count = 0    # Track tool calls per chat turn
+_last_tool_time = 0     # Timestamp of last tool call — resets counter after gap
 _MAX_TOOL_CALLS = 6     # After this many calls, nudge AI to wrap up
 
 def _start_wingman_bridge():
@@ -97,11 +98,22 @@ def _wingman_bridge_loop():
 
     # Content hashes of messages already posted to Tandem — prevents duplicates
     # between PART 1 and PART 2, and prevents replaying old messages on restart.
+    # Capped at 500 entries to prevent unbounded growth over long sessions.
     posted_hashes = set()
+    MAX_POSTED_HASHES = 500
 
     def _content_hash(text):
         """Short hash of message content for dedup."""
         return hashlib.md5(text[:500].encode("utf-8", errors="replace")).hexdigest()
+
+    def _track_hash(h):
+        """Add a hash to posted_hashes, evicting oldest entries if over cap."""
+        if len(posted_hashes) >= MAX_POSTED_HASHES:
+            # Remove ~20% of entries to avoid evicting on every add
+            to_remove = list(posted_hashes)[:MAX_POSTED_HASHES // 5]
+            for old in to_remove:
+                posted_hashes.discard(old)
+        posted_hashes.add(h)
 
     # Wait a bit for services to start
     time.sleep(5)
@@ -270,7 +282,7 @@ def _wingman_bridge_loop():
                     reply = re.sub(r'<think>.*?</think>', '', reply, flags=re.DOTALL).strip()
 
                 if reply:
-                    posted_hashes.add(_content_hash(reply))
+                    _track_hash(_content_hash(reply))
                     _post_to_tandem_chat(token, reply)
                     logger.info(f"Wingman bridge: posted reply '{reply[:80]}...'")
                     # Re-fetch actual Sapphire message count so PART 2 mirror
@@ -389,7 +401,7 @@ def _wingman_bridge_loop():
                     if h in posted_hashes:
                         logger.debug(f"Wingman mirror: skipping already-posted message '{reply_text[:50]}...'")
                         continue
-                    posted_hashes.add(h)
+                    _track_hash(h)
                     _post_to_tandem_chat(token, reply_text)
                     logger.info(f"Wingman mirror: posted AI reply '{reply_text[:80]}...'")
 
@@ -464,9 +476,16 @@ def _send_to_sapphire(base_url, text, ssl_ctx, api_key):
     try:
         with urllib.request.urlopen(req, timeout=120, context=ssl_ctx) as resp:
             full_reply = ""
+            last_chunk_time = time.time()
+            STREAM_TIMEOUT = 60  # seconds without data = stream is stalled
             for line in resp:
+                last_chunk_time = time.time()
                 decoded = line.decode("utf-8", errors="replace").strip()
                 if not decoded:
+                    # Check for stalled stream on empty lines (SSE keepalives)
+                    if time.time() - last_chunk_time > STREAM_TIMEOUT:
+                        logger.warning("Wingman bridge: Sapphire stream stalled, returning partial reply")
+                        break
                     continue
                 if decoded.startswith("data: "):
                     payload = decoded[6:]
@@ -786,6 +805,8 @@ def _ensure_tandem_running():
 
         # Write stderr to a log file instead of PIPE to avoid deadlock
         # (Electron can fill the 64KB pipe buffer, blocking the process)
+        # The file handle intentionally stays open while Electron runs —
+        # it's cleaned up when the process exits or on next launch.
         tandem_log_dir = Path.home() / ".tandem"
         tandem_log_dir.mkdir(parents=True, exist_ok=True)
         stderr_log = open(tandem_log_dir / "electron-stderr.log", "w")
@@ -1337,12 +1358,13 @@ def click_element(selector=None, ref=None):
 def click_link(text):
     """Click a link by its visible text — most reliable click method."""
     # Use JavaScript to find and click a link containing the text
-    escaped = text.replace("'", "\\'").replace('"', '\\"')
+    # Use JSON.stringify for safe escaping of all special characters
+    escaped_json = json.dumps(text)  # Produces a properly escaped JSON string
     js_code = f"""
     (function() {{
         var links = document.querySelectorAll('a');
         var target = null;
-        var searchText = '{escaped}'.toLowerCase();
+        var searchText = {escaped_json}.toLowerCase();
         for (var i = 0; i < links.length; i++) {{
             if (links[i].textContent.toLowerCase().indexOf(searchText) !== -1) {{
                 target = links[i];
@@ -1446,7 +1468,13 @@ def browser_status():
 
 def execute(function_name, arguments, config):
     """Sapphire plugin dispatcher — routes tool calls to the correct function."""
-    global _tool_call_count
+    global _tool_call_count, _last_tool_time
+
+    # Reset counter if >60 seconds since last tool call (new chat turn)
+    now = time.time()
+    if now - _last_tool_time > 60:
+        _tool_call_count = 0
+    _last_tool_time = now
     _tool_call_count += 1
 
     # Log tool calls with arguments for debugging
