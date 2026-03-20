@@ -669,8 +669,13 @@ def _ensure_node_available(app_dir):
         return False
 
 
+_install_thread = None
+_install_status = "idle"  # "idle", "installing", "done", "failed"
+_install_error = ""
+
 def _auto_install_tandem(app_dir):
     """Auto-install npm dependencies and compile TypeScript on first run."""
+    global _install_status, _install_error
     if not (app_dir / "package.json").exists():
         return False
 
@@ -682,6 +687,8 @@ def _auto_install_tandem(app_dir):
     # Ensure Node.js is available (download if needed)
     if not _ensure_node_available(app_dir):
         logger.error("Could not get Node.js — installation cannot proceed")
+        _install_status = "failed"
+        _install_error = "Could not download Node.js. Check your internet connection."
         return False
 
     # Determine npm command — use portable from ~/.tandem/node/ if available
@@ -689,6 +696,7 @@ def _auto_install_tandem(app_dir):
     npm_cmd = _get_npm_cmd(node_dir)
 
     logger.info("First run — installing Tandem Browser dependencies (this may take a minute)...")
+    _install_status = "installing"
 
     def _run_npm(args, timeout_sec):
         """Run an npm command, handling shell=True string quoting on Windows."""
@@ -703,24 +711,51 @@ def _auto_install_tandem(app_dir):
         # Run npm install
         install = _run_npm(["install"], 300)
         if install.returncode != 0:
-            logger.error(f"npm install failed: {install.stderr.decode()[:500]}")
+            err = install.stderr.decode()[:500]
+            logger.error(f"npm install failed: {err}")
+            _install_status = "failed"
+            _install_error = f"npm install failed: {err}"
             return False
         logger.info("npm install complete")
 
         # Compile TypeScript
         compile_result = _run_npm(["run", "compile"], 120)
         if compile_result.returncode != 0:
-            logger.error(f"TypeScript compile failed: {compile_result.stderr.decode()[:500]}")
+            err = compile_result.stderr.decode()[:500]
+            logger.error(f"TypeScript compile failed: {err}")
+            _install_status = "failed"
+            _install_error = f"TypeScript compile failed: {err}"
             return False
         logger.info("TypeScript compile complete — Tandem Browser ready")
 
-        return electron_exe.exists()
+        if electron_exe.exists():
+            _install_status = "done"
+            return True
+        else:
+            _install_status = "failed"
+            _install_error = "Installation completed but Electron executable not found."
+            return False
     except subprocess.TimeoutExpired:
         logger.error("Installation timed out")
+        _install_status = "failed"
+        _install_error = "Installation timed out. Try again."
         return False
     except Exception as e:
         logger.error(f"Installation failed: {e}")
+        _install_status = "failed"
+        _install_error = str(e)
         return False
+
+
+def _start_background_install(app_dir):
+    """Kick off installation in a background thread so the AI can respond immediately."""
+    global _install_thread, _install_status
+    if _install_thread is not None and _install_thread.is_alive():
+        return  # Already installing
+    _install_status = "installing"
+    _install_thread = threading.Thread(target=_auto_install_tandem, args=(app_dir,), daemon=True)
+    _install_thread.start()
+
 
 def _find_tandem_app():
     """Find the bundled Tandem Browser app directory. Auto-installs on first run."""
@@ -733,9 +768,25 @@ def _find_tandem_app():
     if electron_exe.exists():
         return app_dir
 
-    # Try auto-install
-    if _auto_install_tandem(app_dir):
+    # First-time install: run in background and return None
+    # The caller (_ensure_tandem_running) will detect this and return a helpful message
+    if _install_status == "idle":
+        _start_background_install(app_dir)
+        return None  # Signal that install just started
+
+    # Install is running in background
+    if _install_status == "installing":
+        return None
+
+    # Install finished — check if it worked
+    if _install_status == "done" and electron_exe.exists():
         return app_dir
+
+    # Install failed — try one more time synchronously
+    if _install_status == "failed":
+        if _auto_install_tandem(app_dir):
+            return app_dir
+
     return None
 
 def _is_tandem_running():
@@ -1184,6 +1235,17 @@ def _get_config():
 def _api_request(endpoint, method="GET", data=None, timeout=30):
     """Make a request to the Tandem API. Auto-launches Tandem if needed."""
     if not _ensure_tandem_running():
+        # Give the AI a specific message depending on install state
+        if _install_status == "installing":
+            return {"error": (
+                "INSTALLATION IN PROGRESS: Tandem Browser is being set up for the first time. "
+                "This downloads Node.js and installs dependencies (typically 60-90 seconds). "
+                "Tell the user: 'Tandem Browser is installing — please wait about 60 seconds "
+                "and then ask me again.' Do NOT retry immediately."
+            )}
+        elif _install_status == "failed":
+            return {"error": f"Tandem Browser installation failed: {_install_error}. "
+                    "Ask the user to check their internet connection and try again."}
         return {"error": "Tandem Browser could not be started. Check the Sapphire logs for details. The plugin auto-downloads Node.js and dependencies on first run — ensure you have internet access."}
     api_url, token = _get_config()
     url = f"{api_url}{endpoint}"
@@ -1504,6 +1566,16 @@ def execute(function_name, arguments, config):
     # Track the first search query as the "current task" to prevent topic drift
     if function_name == "tandem_search" and not _current_task_query:
         _current_task_query = arguments.get("query", "")
+
+    # If installation is in progress, don't count this call — just tell the AI to wait
+    if _install_status == "installing":
+        _tool_call_count -= 1  # Don't count install-wait calls
+        logger.info(f"Tandem tool call during installation: {function_name} — telling AI to wait")
+        return ("⏳ Tandem Browser is still installing (downloading Node.js and dependencies). "
+                "This is a one-time setup that takes about 60-90 seconds. "
+                "Tell the user: 'Tandem Browser is being set up for the first time — "
+                "please wait about a minute and try again.' "
+                "Do NOT call any tandem tools until the user asks again."), True
 
     # Log tool calls with arguments for debugging
     arg_summary = {k: (v[:80] + '...' if isinstance(v, str) and len(v) > 80 else v) for k, v in (arguments or {}).items()}
