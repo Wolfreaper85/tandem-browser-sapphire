@@ -522,7 +522,7 @@ export class PromptInjectionGuard {
       }
     }
 
-    if (zeroWidthCount > 5) {
+    if (zeroWidthCount > 20) {
       findings.push({
         ruleId: 'unicode_zero_width',
         severity: 'high',

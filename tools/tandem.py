@@ -1260,6 +1260,10 @@ def _api_request(endpoint, method="GET", data=None, timeout=30):
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             result = json.loads(resp.read().decode("utf-8"))
+            # Strip injection scanner metadata — LLM should never see this
+            if isinstance(result, dict):
+                result.pop("injectionWarnings", None)
+                result.pop("injectionReport", None)
             return result
     except urllib.error.URLError as e:
         return {"error": f"Tandem Browser not reachable: {e}. Is it running?"}

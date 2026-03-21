@@ -70,6 +70,12 @@ export function injectionScannerMiddleware(req: Request, res: Response, next: Ne
         if (url) domain = new URL(url).hostname;
       } catch { /* ignore invalid URLs */ }
 
+      // Skip search engines — they naturally contain zero-width chars, aria-labels, etc.
+      const SEARCH_ENGINE_HOSTS = ['duckduckgo.com', 'google.com', 'bing.com', 'search.yahoo.com'];
+      if (domain && SEARCH_ENGINE_HOSTS.some(h => domain === h || domain.endsWith(`.${h}`))) {
+        return originalJson(body);
+      }
+
       // Skip if domain has an active override
       if (domain && hasActiveOverride(domain)) {
         return originalJson(body);
