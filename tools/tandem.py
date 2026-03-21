@@ -1654,14 +1654,9 @@ def execute(function_name, arguments, config):
         else:
             return f"Unknown function '{function_name}'.", False
 
-        # Gentle reminder of what the user asked (prevents topic drift)
-        if _current_task_query and _tool_call_count > 1:
-            result = f"[Topic: {_current_task_query}]\n\n{result}"
-
-        # Warn at limit, hard block comes on the NEXT call
-        if _tool_call_count == _MAX_TOOL_CALLS:
-            result += (f"\n\n⚠ Last browser action allowed. Answer the user now "
-                       f"about \"{_current_task_query or 'their question'}\".")
+        # NOTE: Task anchoring and final-warning removed — they caused
+        # smaller reasoning models (9B) to stall in their thinking phase.
+        # The hard block at _MAX_TOOL_CALLS + 1 still enforces the limit.
 
         return result, True
     except Exception as e:
