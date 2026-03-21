@@ -65,6 +65,15 @@
       <div class="ext-overflow-dropdown" id="ext-overflow-dropdown"></div>
     </div>
     <div class="status-dot" id="status-dot" title="Connected to Wingman API"></div>
+    <button class="search-mode-toggle" id="search-mode-toggle" title="Search mode: Detailed (click to cycle)">
+      <span class="search-mode-icon" id="search-mode-icon">📚</span>
+      <span class="search-mode-label" id="search-mode-label">Detailed</span>
+      <span class="step-dots">
+        <span class="step-dot" data-mode="quick"></span>
+        <span class="step-dot" data-mode="normal"></span>
+        <span class="step-dot" data-mode="detailed"></span>
+      </span>
+    </button>
     <span class="wingman-badge">🤖 Wingman</span>
   </div>
 
@@ -406,6 +415,7 @@
   <script src="js/wingman.js"></script>
   <!-- ClaroNote disabled — decoupled, coming in a later update -->
   <!-- <script src="js/claronote.js"></script> -->
+  <script src="js/search-mode.js"></script>
   <script src="js/extensions.js"></script>
   <script src="js/video-recorder.js"></script>
   <script src="js/shortcut-router.js"></script>

@@ -67,8 +67,9 @@ _bridge_running = False
 _has_navigated = False  # Track if AI has navigated in this session
 _tool_call_count = 0    # Track tool calls per chat turn
 _last_tool_time = 0     # Timestamp of last tool call — resets counter after gap
-_MAX_TOOL_CALLS = 6     # After this many calls, nudge AI to wrap up
+_MAX_TOOL_CALLS = 10    # Default (detailed mode) — overridden by search_mode setting
 _current_task_query = ""  # Track the original search query to prevent topic drift
+_search_mode = "detailed"  # "quick", "normal", or "detailed" — set from plugin config
 
 def _start_wingman_bridge():
     """Start the background bridge thread (once)."""
@@ -1334,17 +1335,23 @@ def web_search(query):
     _has_navigated = True
     import urllib.parse
     encoded = urllib.parse.quote_plus(query)
-    search_url = f"https://duckduckgo.com/?q={encoded}"
+
+    # Quick mode uses DuckDuckGo's AI search assist for instant answers
+    if _search_mode == "quick":
+        search_url = f"https://duckduckgo.com/?ia=web&t=h_&q={encoded}&assist=true"
+    else:
+        search_url = f"https://duckduckgo.com/?q={encoded}"
 
     # Navigate straight to DuckDuckGo search (no about:blank delay)
     nav = _api_request("/navigate", method="POST", data={"url": search_url})
     if isinstance(nav, dict) and "error" in nav:
         return nav["error"]
 
-    # Wait for OUR search results — verify query is in URL
-    # Use fewer polls with longer intervals to reduce API pressure
+    # Wait for search results — verify query is in URL
+    # Quick mode needs extra time for the AI assist panel to render
     loaded = False
-    time.sleep(2)  # Initial wait for DuckDuckGo to load
+    wait_time = 3 if _search_mode == "quick" else 2
+    time.sleep(wait_time)
     for _ in range(4):
         page = _api_request("/page-content", timeout=5)
         if isinstance(page, dict) and not page.get("error"):
@@ -1356,8 +1363,9 @@ def web_search(query):
 
     if not loaded:
         # Fallback: let Tandem wait for the element (single request, no polling)
+        wait_selector = ".js-ai-assist" if _search_mode == "quick" else "#links"
         _api_request("/wait", method="POST",
-                     data={"selector": "#links", "timeout": 8000}, timeout=12)
+                     data={"selector": wait_selector, "timeout": 8000}, timeout=12)
 
     # Read final page content
     result = _api_request("/page-content", timeout=15)
@@ -1368,7 +1376,7 @@ def web_search(query):
     title = result.get("title", "")
     text = result.get("text", "")
 
-    if "duckduckgo.com" not in current_url or encoded not in current_url:
+    if "duckduckgo.com" not in current_url and encoded not in current_url:
         # Reset to DuckDuckGo home on failure
         _api_request("/navigate", method="POST", data={"url": "https://duckduckgo.com"})
         return (f"Search navigation failed. Browser has been reset to DuckDuckGo.\n"
@@ -1376,13 +1384,31 @@ def web_search(query):
 
     if not text:
         return f"Search for '{query}' loaded but has no readable text yet. Try tandem_read_page in a few seconds."
-    # Truncate search results to avoid flooding LLM context
-    if len(text) > 2000:
-        text = text[:2000] + "\n\n[Results truncated. Click a link for full details.]"
-    return (f"Search results for: \"{query}\"\n"
-            f"IMPORTANT: Your search query must be based ONLY on the user's LAST message. "
-            f"If unsure, re-read the user's last message before taking any further action.\n"
-            f"URL: {current_url}\n\n{text}")
+
+    # Format results based on search mode
+    if _search_mode == "quick":
+        # Quick mode: DuckDuckGo AI assist — tight truncation, answer directly, no browsing
+        if len(text) > 1500:
+            text = text[:1500] + "\n\n[Truncated.]"
+        return (f"Quick answer for: \"{query}\"\n"
+                f"IMPORTANT: Answer the user NOW using ONLY the information below. "
+                f"Do NOT click any links, do NOT navigate to any pages, do NOT use any more browser tools. "
+                f"Just answer directly.\n"
+                f"URL: {current_url}\n\n{text}")
+    elif _search_mode == "normal":
+        # Normal mode: search snippets, no encouragement to click deeper
+        if len(text) > 2000:
+            text = text[:2000] + "\n\n[Results truncated.]"
+        return (f"Search results for: \"{query}\"\n"
+                f"URL: {current_url}\n\n{text}")
+    else:
+        # Detailed mode: encourage clicking into pages for thorough answers
+        if len(text) > 2000:
+            text = text[:2000] + "\n\n[Results truncated — use tandem_click_link to open a result and get the full page content.]"
+        return (f"Search results for: \"{query}\"\n"
+                f"TIP: For detailed or accurate answers, click into one or more search results using tandem_click_link, "
+                f"then read the full page with tandem_read_page. Search snippets alone may be incomplete.\n"
+                f"URL: {current_url}\n\n{text}")
 
 
 def get_page_content():
@@ -1557,7 +1583,20 @@ def browser_status():
 
 def execute(function_name, arguments, config):
     """Sapphire plugin dispatcher — routes tool calls to the correct function."""
-    global _tool_call_count, _last_tool_time, _current_task_query
+    global _tool_call_count, _last_tool_time, _current_task_query, _search_mode, _MAX_TOOL_CALLS
+
+    # Read search mode — browser toggle takes priority, then Sapphire plugin settings
+    search_mode = (config or {}).get("search_mode", "detailed")
+    try:
+        browser_mode = _api_request("/search-mode", timeout=2)
+        if isinstance(browser_mode, dict) and browser_mode.get("mode"):
+            search_mode = browser_mode["mode"]
+    except Exception:
+        pass  # Browser not reachable yet — use Sapphire setting
+    if search_mode != _search_mode:
+        _search_mode = search_mode
+        _MAX_TOOL_CALLS = {"quick": 1, "normal": 6, "detailed": 10}.get(_search_mode, 10)
+        logger.info(f"Search mode set to: {_search_mode} (tool limit: {_MAX_TOOL_CALLS})")
 
     # Reset counter if >60 seconds since last tool call (new chat turn)
     now = time.time()

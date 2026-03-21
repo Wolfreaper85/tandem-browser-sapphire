@@ -11,9 +11,18 @@ import { createRateLimitMiddleware } from '../rate-limit';
 // Module-level live mode state (was a closure variable in server.ts)
 let liveMode = false;
 
+// Search mode state — synced between browser UI and Sapphire plugin
+let searchMode: 'quick' | 'normal' | 'detailed' = 'detailed';
+
+/** Get current search mode (used by other modules if needed). */
+export function getSearchMode(): 'quick' | 'normal' | 'detailed' {
+  return searchMode;
+}
+
 /** Reset module-level route state between isolated test apps. */
 export function resetMiscRouteStateForTests(): void {
   liveMode = false;
+  searchMode = 'detailed';
 }
 
 export function registerMiscRoutes(router: Router, ctx: RouteContext): void {
@@ -228,6 +237,24 @@ export function registerMiscRoutes(router: Router, ctx: RouteContext): void {
     // Notify panel UI about live mode change
     ctx.panelManager.sendLiveModeChanged(liveMode);
     res.json({ ok: true, enabled: liveMode });
+  });
+
+  // ═══════════════════════════════════════════════
+  // SEARCH MODE — Simple vs Detailed toggle
+  // ═══════════════════════════════════════════════
+
+  router.get('/search-mode', (_req: Request, res: Response) => {
+    res.json({ mode: searchMode });
+  });
+
+  router.post('/search-mode', (req: Request, res: Response) => {
+    const { mode } = req.body;
+    if (mode === 'quick' || mode === 'normal' || mode === 'detailed') {
+      searchMode = mode;
+      res.json({ ok: true, mode: searchMode });
+    } else {
+      res.status(400).json({ error: 'mode must be "simple" or "detailed"' });
+    }
   });
 
   // Filtered SSE stream — only active when live mode is on

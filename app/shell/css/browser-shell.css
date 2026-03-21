@@ -542,6 +542,91 @@
       }
     }
 
+    /* ═══ Search mode toggle ═══ */
+    .search-mode-toggle {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      padding: 3px 10px;
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.4);
+      border-radius: 12px;
+      color: rgba(99, 102, 241, 0.9);
+      cursor: pointer;
+      transition: all 0.25s;
+      white-space: nowrap;
+    }
+
+    .search-mode-toggle:hover {
+      background: rgba(99, 102, 241, 0.25);
+      border-color: rgba(99, 102, 241, 0.6);
+      transform: scale(1.03);
+    }
+
+    /* Quick — yellow/amber */
+    .search-mode-toggle.mode-quick {
+      background: rgba(245, 158, 11, 0.15);
+      border-color: rgba(245, 158, 11, 0.4);
+      color: rgba(245, 158, 11, 0.95);
+    }
+    .search-mode-toggle.mode-quick:hover {
+      background: rgba(245, 158, 11, 0.25);
+      border-color: rgba(245, 158, 11, 0.6);
+    }
+
+    /* Normal — green */
+    .search-mode-toggle.mode-normal {
+      background: rgba(34, 197, 94, 0.15);
+      border-color: rgba(34, 197, 94, 0.4);
+      color: rgba(34, 197, 94, 0.9);
+    }
+    .search-mode-toggle.mode-normal:hover {
+      background: rgba(34, 197, 94, 0.25);
+      border-color: rgba(34, 197, 94, 0.6);
+    }
+
+    /* Detailed — purple (default) */
+    .search-mode-toggle.mode-detailed {
+      background: rgba(99, 102, 241, 0.15);
+      border-color: rgba(99, 102, 241, 0.4);
+      color: rgba(99, 102, 241, 0.9);
+    }
+    .search-mode-toggle.mode-detailed:hover {
+      background: rgba(99, 102, 241, 0.25);
+      border-color: rgba(99, 102, 241, 0.6);
+    }
+
+    .search-mode-icon {
+      font-size: 12px;
+    }
+
+    .search-mode-label {
+      font-weight: 500;
+    }
+
+    /* Step dots — shows which mode is active */
+    .step-dots {
+      display: flex;
+      gap: 3px;
+      align-items: center;
+      margin-left: 2px;
+    }
+
+    .step-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: 0.25;
+      transition: opacity 0.25s, transform 0.25s;
+    }
+
+    .step-dot.active {
+      opacity: 1;
+      transform: scale(1.3);
+    }
+
     .wingman-badge {
       font-size: 11px;
       padding: 3px 8px;

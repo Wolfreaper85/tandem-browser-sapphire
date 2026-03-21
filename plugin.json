@@ -21,6 +21,14 @@
         "label": "API Token File",
         "default": "~/.tandem/api-token",
         "help": "Path to the Tandem API token file"
+      },
+      {
+        "key": "search_mode",
+        "type": "select",
+        "label": "Search Mode",
+        "default": "detailed",
+        "options": ["quick", "normal", "detailed"],
+        "help": "Quick: instant AI-assisted answers. Normal: search snippets. Detailed: clicks into pages for thorough answers."
       }
     ]
   }
