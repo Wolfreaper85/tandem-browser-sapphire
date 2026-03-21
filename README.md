@@ -38,6 +38,50 @@ Install directly from the Sapphire plugin store (if available).
 4. Launches Tandem Browser
 5. Subsequent launches are instant — no re-download needed
 
+## Platform Setup
+
+### Windows
+Works out of the box. No extra configuration needed.
+
+### macOS (Native Sapphire)
+Works out of the box. On first launch, the plugin automatically clears the macOS quarantine flag on the Electron binary so it can run without Gatekeeper warnings.
+
+### macOS / Linux (Sapphire in Docker)
+If you're running Sapphire inside a Docker container but want Tandem Browser to run on the host, you need a few extra steps:
+
+**1. Mount the token folder into the container**
+
+Tandem generates its API token at `~/.tandem/api-token` on the host. The plugin inside Docker needs to read this file. Add a volume mount when starting your container:
+```
+-v ~/.tandem:/root/.tandem:ro
+```
+(Adjust `/root` to match the home directory inside your container.)
+
+**2. Use the correct URL for the host**
+
+Inside Docker, `127.0.0.1` refers to the container itself — not your Mac/Linux host. Docker Desktop for Mac provides a special hostname:
+```
+http://host.docker.internal:8765
+```
+On Linux, use `--network host` or pass the host IP explicitly.
+
+**3. Sapphire's API key**
+
+The Wingman chat bridge reads Sapphire's secret key to authenticate. The key location depends on your setup:
+- **macOS (native):** `~/.config/sapphire/secret_key`
+- **Windows:** `%APPDATA%\Sapphire\secret_key`
+- **Docker:** Wherever the container maps the Sapphire config directory
+
+**4. Verify connectivity**
+
+Once Tandem is running on the host, test from inside the container:
+```bash
+curl http://host.docker.internal:8765/api/status
+```
+You should get a JSON response. If not, check your Docker port mapping or network mode.
+
+**Simpler alternative:** If Docker networking is giving you trouble, consider running Sapphire natively on your Mac. The plugin auto-installs everything — no manual setup required.
+
 ## Tool Functions
 
 Once installed, Sapphire gains these browsing tools:
