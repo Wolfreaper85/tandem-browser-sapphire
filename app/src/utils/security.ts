@@ -84,6 +84,7 @@ const STEALTH_SKIP_HOSTS = new Set([
   'x.com',
   'twitter.com',
   'abs.twimg.com',
+  'zhipin.com',
 ]);
 
 export function shouldSkipStealth(rawValue: string): boolean {

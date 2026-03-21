@@ -11,6 +11,7 @@ import { handleRouteError } from '../../utils/errors';
 import { DEFAULT_TIMEOUT_MS } from '../../utils/constants';
 import { resolvePathInAllowedRoots } from '../../utils/security';
 import { createRateLimitMiddleware } from '../rate-limit';
+import { injectionScannerMiddleware } from '../middleware/injection-scanner';
 
 /** Maximum allowed code length for JS execution endpoints (1 MB) */
 const MAX_CODE_LENGTH = 1_048_576;
@@ -61,7 +62,7 @@ export function registerBrowserRoutes(router: Router, ctx: RouteContext): void {
   // PAGE CONTENT
   // ═══════════════════════════════════════════════
 
-  router.get('/page-content', async (req: Request, res: Response) => {
+  router.get('/page-content', injectionScannerMiddleware, async (req: Request, res: Response) => {
     try {
       const settleMs = parseInt(req.query.settle as string) || 800;
       const maxWait = parseInt(req.query.timeout as string) || 10000;
@@ -166,7 +167,7 @@ export function registerBrowserRoutes(router: Router, ctx: RouteContext): void {
     }
   });
 
-  router.get('/page-html', async (req: Request, res: Response) => {
+  router.get('/page-html', injectionScannerMiddleware, async (req: Request, res: Response) => {
     try {
       const html = await execInSessionTab(ctx, req, 'document.documentElement.outerHTML');
       res.type('html').send(html);
@@ -218,7 +219,7 @@ export function registerBrowserRoutes(router: Router, ctx: RouteContext): void {
   // EXECUTE JS
   // ═══════════════════════════════════════════════
 
-  router.post('/execute-js', async (req: Request, res: Response) => {
+  router.post('/execute-js', injectionScannerMiddleware, async (req: Request, res: Response) => {
     const script = req.body.code || req.body.script;
     if (!script) { res.status(400).json({ error: 'code or script required' }); return; }
     if (script.length > MAX_CODE_LENGTH) {

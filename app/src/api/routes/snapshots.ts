@@ -2,13 +2,14 @@ import type { Router, Request, Response } from 'express';
 import type { RouteContext } from '../context';
 import type { LocatorQuery } from '../../locators/finder';
 import { handleRouteError } from '../../utils/errors';
+import { injectionScannerMiddleware } from '../middleware/injection-scanner';
 
 export function registerSnapshotRoutes(router: Router, ctx: RouteContext): void {
   // ═══════════════════════════════════════════════
   // SNAPSHOTS — Accessibility-tree based interaction
   // ═══════════════════════════════════════════════
 
-  router.get('/snapshot', async (req: Request, res: Response) => {
+  router.get('/snapshot', injectionScannerMiddleware, async (req: Request, res: Response) => {
     try {
       const interactive = req.query.interactive === 'true';
       const compact = req.query.compact === 'true';
@@ -53,7 +54,7 @@ export function registerSnapshotRoutes(router: Router, ctx: RouteContext): void 
     }
   });
 
-  router.get('/snapshot/text', async (req: Request, res: Response) => {
+  router.get('/snapshot/text', injectionScannerMiddleware, async (req: Request, res: Response) => {
     const ref = req.query.ref as string;
     if (!ref) { res.status(400).json({ error: 'ref query parameter required (e.g. "?ref=@e1")' }); return; }
     try {
