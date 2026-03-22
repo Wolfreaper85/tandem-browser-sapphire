@@ -253,7 +253,7 @@ export function registerMiscRoutes(router: Router, ctx: RouteContext): void {
       searchMode = mode;
       res.json({ ok: true, mode: searchMode });
     } else {
-      res.status(400).json({ error: 'mode must be "simple" or "detailed"' });
+      res.status(400).json({ error: 'mode must be "quick", "normal", or "detailed"' });
     }
   });
 

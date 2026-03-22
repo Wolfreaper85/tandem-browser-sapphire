@@ -2,7 +2,7 @@
 // Wires PromptInjectionGuard into /page-content, /page-html, /execute-js routes
 
 import type { Request, Response, NextFunction } from 'express';
-import { PromptInjectionGuard } from '../../security/prompt-injection-guard';
+import { PromptInjectionGuard, type PromptInjectionFinding } from '../../security/prompt-injection-guard';
 import { createLogger } from '../../utils/logger';
 
 const log = createLogger('InjectionScanner');
@@ -93,6 +93,10 @@ export function injectionScannerMiddleware(req: Request, res: Response, next: Ne
       if (report.riskScore >= 70) {
         // BLOCK — don't return the content
         log.warn(`BLOCKED content from ${url} (risk: ${report.riskScore})`);
+
+        // Emit SSE event so browser shell can show a modal
+        emitInjectionAlert('blocked', domain, report.riskScore, report.findings, report.summary);
+
         return originalJson({
           error: 'Content blocked by Prompt Injection Guard',
           injectionReport: {
@@ -100,16 +104,21 @@ export function injectionScannerMiddleware(req: Request, res: Response, next: Ne
             findings: report.findings,
             summary: report.summary,
             blocked: true,
+            domain,
           },
           url,
         });
       }
 
       // WARN — return content with warnings attached
+      log.info(`Injection warning for ${url} (risk: ${report.riskScore})`);
+      emitInjectionAlert('warning', domain, report.riskScore, report.findings, report.summary);
+
       data.injectionWarnings = {
         riskScore: report.riskScore,
         findings: report.findings,
         summary: report.summary,
+        domain,
       };
 
       return originalJson(data);
@@ -121,6 +130,59 @@ export function injectionScannerMiddleware(req: Request, res: Response, next: Ne
   };
 
   next();
+}
+
+// ═══ Injection alert event system ═══
+// Allows the browser shell to subscribe via SSE and show modals
+
+interface InjectionAlert {
+  type: 'blocked' | 'warning';
+  domain: string;
+  riskScore: number;
+  findings: PromptInjectionFinding[];
+  summary: string;
+  timestamp: number;
+}
+
+let latestAlert: InjectionAlert | null = null;
+const alertListeners: Array<(alert: InjectionAlert) => void> = [];
+
+function emitInjectionAlert(type: 'blocked' | 'warning', domain: string, riskScore: number, findings: PromptInjectionFinding[], summary: string): void {
+  const alert: InjectionAlert = { type, domain, riskScore, findings, summary, timestamp: Date.now() };
+  latestAlert = alert;
+  for (const listener of alertListeners) {
+    try { listener(alert); } catch { /* ignore */ }
+  }
+}
+
+/** Register SSE endpoint for injection alerts + override route */
+export function registerInjectionRoutes(router: { get: Function; post: Function }): void {
+  // SSE stream — browser shell subscribes to this for real-time injection alerts
+  router.get('/security/injection-alerts', (_req: Request, res: Response) => {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    });
+    res.write('data: {"connected":true}\n\n');
+
+    const listener = (alert: InjectionAlert) => {
+      res.write(`data: ${JSON.stringify(alert)}\n\n`);
+    };
+    alertListeners.push(listener);
+
+    res.on('close', () => {
+      const idx = alertListeners.indexOf(listener);
+      if (idx >= 0) alertListeners.splice(idx, 1);
+    });
+  });
+
+  // GET latest alert (for polling fallback)
+  router.get('/security/injection-latest', (_req: Request, res: Response) => {
+    res.json(latestAlert || { type: 'none' });
+  });
+
+  registerOverrideRoute(router);
 }
 
 /**

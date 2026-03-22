@@ -106,6 +106,18 @@ export class DownloadManager {
     this.downloadFolder = folderPath;
   }
 
+  /** Clear completed/cancelled/interrupted downloads from the list */
+  clearFinished(): number {
+    let cleared = 0;
+    for (const [id, entry] of this.downloads) {
+      if (entry.status !== 'progressing') {
+        this.downloads.delete(id);
+        cleared++;
+      }
+    }
+    return cleared;
+  }
+
   /** Get download folder */
   getDownloadFolder(): string {
     return this.downloadFolder;

@@ -1,5 +1,6 @@
 import type { Router, Request, Response } from 'express';
 import { rateLimit as expressRateLimit } from 'express-rate-limit';
+import { shell } from 'electron';
 import path from 'path';
 import os from 'os';
 import fs from 'fs';
@@ -173,6 +174,26 @@ export function registerDataRoutes(router: Router, ctx: RouteContext): void {
     try {
       const downloads = ctx.downloadManager.listActive();
       res.json({ downloads });
+    } catch (e) {
+      handleRouteError(res, e);
+    }
+  });
+
+  router.delete('/downloads/clear', (_req: Request, res: Response) => {
+    try {
+      const cleared = ctx.downloadManager.clearFinished();
+      res.json({ ok: true, cleared });
+    } catch (e) {
+      handleRouteError(res, e);
+    }
+  });
+
+  router.post('/downloads/show', (req: Request, res: Response) => {
+    try {
+      const filePath = req.body.path;
+      if (!filePath) { res.status(400).json({ error: 'path required' }); return; }
+      shell.showItemInFolder(path.resolve(filePath));
+      res.json({ ok: true });
     } catch (e) {
       handleRouteError(res, e);
     }

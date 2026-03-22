@@ -114,7 +114,12 @@
   <div class="title"><span class="t">T</span><span class="rest">andem</span></div>
   <div class="subtitle">AI Companion Browser</div>
   <div class="status-badge">Sapphire Edition</div>
-  <div class="version" id="version">v0.62.9</div>
+  <div class="version" id="version"></div>
+  <script>
+    const v = window.__TANDEM_VERSION__;
+    const el = document.getElementById('version');
+    if (v) { el.textContent = 'v' + v; } else { el.textContent = 'v0.65.5-sapphire'; }
+  </script>
   <div class="info">
     Originally built for human-AI collaboration with OpenClaw.<br>
     Modified to integrate with <strong style="color:#a78bfa;">Sapphire AI</strong> — providing seamless browsing,<br>

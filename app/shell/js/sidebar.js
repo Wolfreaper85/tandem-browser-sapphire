@@ -899,10 +899,34 @@
 
       safeSetPanelHTML(`
         <div class="history-panel">
+          <div style="display:flex;justify-content:flex-end;padding:0 8px 6px;">
+            <button id="clear-downloads-btn" style="
+              background: rgba(239,68,68,0.15);
+              border: 1px solid rgba(239,68,68,0.3);
+              color: rgba(239,68,68,0.9);
+              border-radius: 6px;
+              padding: 4px 10px;
+              font-size: 11px;
+              cursor: pointer;
+              transition: all 0.2s;
+            " title="Clear completed downloads">Clear All</button>
+          </div>
           <div class="history-list" id="downloads-list">
             <div class="bm-empty">Loading…</div>
           </div>
         </div>`);
+
+      // Wire up clear button
+      document.getElementById('clear-downloads-btn')?.addEventListener('click', async () => {
+        if (!confirm('Clear all downloads?')) return;
+        try {
+          await fetch('http://localhost:8765/downloads/clear', {
+            method: 'DELETE', headers: { Authorization: `Bearer ${TOKEN()}` }
+          });
+          const listEl = document.getElementById('downloads-list');
+          if (listEl) listEl.innerHTML = '<div class="bm-empty">No downloads</div>';
+        } catch (e) { console.error('Failed to clear downloads:', e); }
+      });
 
       try {
         const res = await fetch('http://localhost:8765/downloads', { headers: { Authorization: `Bearer ${TOKEN()}` } });
@@ -921,20 +945,50 @@
               const progress = dl.status === 'progressing' && dl.totalBytes > 0
                 ? ` (${Math.round(dl.receivedBytes / dl.totalBytes * 100)}%)`
                 : '';
-              return `<div class="bm-item" data-path="${dl.savePath || ''}" title="${dl.url || ''}">
+              const showFolderBtn = dl.savePath && dl.status === 'completed'
+                ? `<button class="dl-open-folder" data-path="${dl.savePath}" title="Open file location" style="
+                    background: rgba(99,102,241,0.15);
+                    border: 1px solid rgba(99,102,241,0.3);
+                    color: rgba(99,102,241,0.9);
+                    border-radius: 4px;
+                    padding: 2px 6px;
+                    font-size: 10px;
+                    cursor: pointer;
+                    white-space: nowrap;
+                    transition: all 0.2s;
+                  ">📂 Open</button>`
+                : '';
+              return `<div class="bm-item" title="${dl.url || ''}">
                 <div class="bm-icon">${statusIcon}</div>
                 <div style="flex:1;min-width:0;">
                   <span class="bm-name">${dl.filename || 'Unknown'}</span>
                   <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px;">${size}${progress}</div>
                 </div>
+                ${showFolderBtn}
               </div>`;
             }).join('');
-            // Click to open file location
-            listEl.querySelectorAll('.bm-item[data-path]').forEach(el => {
-              el.style.cursor = 'pointer';
-              el.addEventListener('click', () => {
-                const p = el.dataset.path;
-                if (p && window.tandem?.openExternal) window.tandem.openExternal(p);
+            // Open file location buttons
+            listEl.querySelectorAll('.dl-open-folder').forEach(btn => {
+              btn.addEventListener('mouseenter', () => { btn.style.background = 'rgba(99,102,241,0.3)'; });
+              btn.addEventListener('mouseleave', () => { btn.style.background = 'rgba(99,102,241,0.15)'; });
+              btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const filePath = btn.dataset.path;
+                if (!filePath) return;
+                // Try API route first, fall back to navigating to folder
+                try {
+                  const resp = await fetch('http://localhost:8765/downloads/show', {
+                    method: 'POST',
+                    headers: {
+                      Authorization: `Bearer ${TOKEN()}`,
+                      'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ path: filePath })
+                  });
+                  if (!resp.ok) throw new Error('API returned ' + resp.status);
+                } catch (err) {
+                  console.error('Failed to open folder:', err);
+                }
               });
             });
           }

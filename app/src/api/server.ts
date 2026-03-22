@@ -27,6 +27,7 @@ import { registerWorkspaceRoutes } from './routes/workspaces';
 import { registerSyncRoutes } from './routes/sync';
 import { registerPinboardRoutes } from './routes/pinboards';
 import { registerPreviewRoutes } from './routes/previews';
+import { registerInjectionRoutes } from './middleware/injection-scanner';
 import { registerSecurityRoutes } from '../security/routes';
 import { nmProxy, TRUSTED_EXTENSION_PROXY_PATHS } from '../extensions/nm-proxy';
 import type { ExtensionRouteAccessDecision } from '../extensions/manager';
@@ -427,6 +428,9 @@ export class TandemAPI {
     registerSyncRoutes(router, ctx);
     registerPinboardRoutes(router, ctx);
     registerPreviewRoutes(router, ctx);
+
+    // Injection guard alert SSE + override routes
+    registerInjectionRoutes(router);
 
     // Native messaging proxy: route extension connectNative/sendNativeMessage
     // through Tandem's API since Electron 40 doesn't support them natively.

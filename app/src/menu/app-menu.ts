@@ -27,7 +27,7 @@ export function buildAppMenu(deps: MenuDeps): void {
 
   const template: Electron.MenuItemConstructorOptions[] = [
     {
-      label: app.name,
+      label: 'Tandem Browser',
       submenu: [
         {
           label: 'About Tandem Browser',
@@ -69,6 +69,8 @@ export function buildAppMenu(deps: MenuDeps): void {
         { role: 'copy' },
         { role: 'paste' },
         { role: 'selectAll' },
+        { type: 'separator' },
+        { label: 'Draw Mode', accelerator: 'CmdOrCtrl+Shift+D', click: () => deps.drawManager?.toggleDrawMode() },
       ],
     },
     {
@@ -90,9 +92,7 @@ export function buildAppMenu(deps: MenuDeps): void {
         { label: 'Voice Input', accelerator: 'CmdOrCtrl+Shift+M', click: () => deps.voiceManager?.toggleVoice() },
         { label: 'PiP Mode', accelerator: 'CmdOrCtrl+Shift+P', click: () => deps.pipManager?.toggle() },
         { type: 'separator' },
-        { label: 'Draw Mode', accelerator: 'CmdOrCtrl+Shift+D', click: () => deps.drawManager?.toggleDrawMode() },
         { label: 'Quick Screenshot', accelerator: 'CmdOrCtrl+Shift+S', click: () => send('quick-screenshot') },
-        { type: 'separator' },
         { label: 'Record Tab Audio', accelerator: 'CmdOrCtrl+R', click: () => {
           if (deps.videoRecorderManager) {
             if (deps.videoRecorderManager.isRecording()) {
@@ -112,20 +112,13 @@ export function buildAppMenu(deps: MenuDeps): void {
       ],
     },
     {
-      label: 'Window',
-      submenu: [
-        { role: 'minimize' },
-        { role: 'zoom' },
-        { type: 'separator' },
-        { role: 'front' },
-      ],
-    },
-    {
       label: 'Help',
       submenu: [
         { label: 'Keyboard Shortcuts', accelerator: 'CmdOrCtrl+Shift+/', click: () => send('show-shortcuts') },
         { type: 'separator' },
         { label: 'Show Onboarding', click: () => send('show-onboarding') },
+        { type: 'separator' },
+        { label: 'About Tandem Browser', click: () => send('show-about') },
       ],
     },
   ];
