@@ -87,6 +87,7 @@ function getOrCreateAuthToken(): string {
 export interface TandemAPIOptions {
   win: BrowserWindow;
   port?: number;
+  bindAddress?: string;
   registry: ManagerRegistry;
 }
 
@@ -96,11 +97,13 @@ export class TandemAPI {
   private win: BrowserWindow;
   private authToken: string;
   private port: number;
+  private bindAddress: string;
   private registry: ManagerRegistry;
 
   constructor(opts: TandemAPIOptions) {
     this.win = opts.win;
     this.port = opts.port ?? API_PORT;
+    this.bindAddress = opts.bindAddress ?? '127.0.0.1';
     this.registry = opts.registry;
 
     this.app = express();
@@ -439,7 +442,7 @@ export class TandemAPI {
 
   async start(): Promise<void> {
     return new Promise((resolve) => {
-      this.server = this.app.listen(this.port, '127.0.0.1', () => {
+      this.server = this.app.listen(this.port, this.bindAddress, () => {
         resolve();
       });
     });

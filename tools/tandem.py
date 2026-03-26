@@ -70,6 +70,7 @@ _last_tool_time = 0     # Timestamp of last tool call — resets counter after g
 _MAX_TOOL_CALLS = 10    # Default (detailed mode) — overridden by search_mode setting
 _current_task_query = ""  # Track the original search query to prevent topic drift
 _search_mode = "detailed"  # "quick", "normal", or "detailed" — set from plugin config
+_bind_address = "127.0.0.1"  # "127.0.0.1" or "0.0.0.0" — set from plugin config
 
 def _start_wingman_bridge():
     """Start the background bridge thread (once)."""
@@ -848,6 +849,7 @@ def _ensure_tandem_running():
         env = os.environ.copy()
         env.pop("ELECTRON_RUN_AS_NODE", None)
         env.pop("ATOM_SHELL_INTERNAL_RUN_AS_NODE", None)
+        env["TANDEM_BIND_ADDRESS"] = _bind_address
 
         # Ensure portable Node.js is on PATH for Electron child processes
         node_dir = _get_portable_node_dir()
@@ -1583,7 +1585,12 @@ def browser_status():
 
 def execute(function_name, arguments, config):
     """Sapphire plugin dispatcher — routes tool calls to the correct function."""
-    global _tool_call_count, _last_tool_time, _current_task_query, _search_mode, _MAX_TOOL_CALLS
+    global _tool_call_count, _last_tool_time, _current_task_query, _search_mode, _MAX_TOOL_CALLS, _bind_address
+
+    # Read bind address from config (applied on next Tandem launch)
+    bind_addr = (config or {}).get("bind_address", "127.0.0.1")
+    if bind_addr in ("127.0.0.1", "0.0.0.0"):
+        _bind_address = bind_addr
 
     # Read search mode — browser toggle takes priority, then Sapphire plugin settings
     search_mode = (config or {}).get("search_mode", "detailed")

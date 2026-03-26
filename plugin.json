@@ -29,6 +29,14 @@
         "default": "detailed",
         "options": ["quick", "normal", "detailed"],
         "help": "Quick: instant AI-assisted answers. Normal: search snippets. Detailed: clicks into pages for thorough answers."
+      },
+      {
+        "key": "bind_address",
+        "type": "select",
+        "label": "Bind Address",
+        "default": "127.0.0.1",
+        "options": ["127.0.0.1", "0.0.0.0"],
+        "help": "127.0.0.1 = local only (default). 0.0.0.0 = accessible from other devices on your network. Requires restart."
       }
     ]
   }

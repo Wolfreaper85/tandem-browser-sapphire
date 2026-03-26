@@ -469,9 +469,10 @@ async function startAPI(win: BrowserWindow): Promise<void> {
     log,
   });
   const registry = createManagerRegistry(runtime);
-  api = new TandemAPI({ win, port: API_PORT, registry });
+  const bindAddress = process.env.TANDEM_BIND_ADDRESS ?? '127.0.0.1';
+  api = new TandemAPI({ win, port: API_PORT, bindAddress, registry });
   await api.start();
-  log.info(`🧠 Tandem API running on http://localhost:${API_PORT}`);
+  log.info(`🧠 Tandem API running on http://${bindAddress}:${API_PORT}`);
 
   // Phase 4: Wire GatekeeperWebSocket + NM proxy WebSocket onto the running HTTP server
   const httpServer = api.getHttpServer();
