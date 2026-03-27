@@ -846,10 +846,36 @@ def _ensure_tandem_running():
             except Exception as e:
                 logger.warning(f"Could not clear quarantine flags: {e}")
 
+        # Linux: fix chrome-sandbox permissions if needed (Electron requires root:4755)
+        if IS_LINUX:
+            sandbox_path = electron_exe.parent / "chrome-sandbox"
+            if sandbox_path.exists():
+                try:
+                    stat = sandbox_path.stat()
+                    # Check if setuid bit (mode 4755) and root-owned
+                    is_setuid = bool(stat.st_mode & 0o4000)
+                    is_root = (stat.st_uid == 0)
+                    if not is_setuid or not is_root:
+                        logger.info("Fixing chrome-sandbox permissions (requires sudo)...")
+                        subprocess.run(["sudo", "chown", "root:root", str(sandbox_path)],
+                                       capture_output=True, timeout=10)
+                        subprocess.run(["sudo", "chmod", "4755", str(sandbox_path)],
+                                       capture_output=True, timeout=10)
+                        logger.info("chrome-sandbox permissions fixed")
+                except Exception as e:
+                    logger.warning(f"Could not fix chrome-sandbox permissions: {e}. "
+                                   "If Electron crashes, run manually:\n"
+                                   f"  sudo chown root:root {sandbox_path}\n"
+                                   f"  sudo chmod 4755 {sandbox_path}")
+
         env = os.environ.copy()
         env.pop("ELECTRON_RUN_AS_NODE", None)
         env.pop("ATOM_SHELL_INTERNAL_RUN_AS_NODE", None)
         env["TANDEM_BIND_ADDRESS"] = _bind_address
+
+        # Linux: force X11 backend — Electron often crashes under Wayland
+        if IS_LINUX:
+            env.setdefault("ELECTRON_OZONE_PLATFORM_HINT", "x11")
 
         # Ensure portable Node.js is on PATH for Electron child processes
         node_dir = _get_portable_node_dir()
@@ -890,6 +916,12 @@ def _ensure_tandem_running():
                 logger.error(f"Electron crashed on launch (exit code {exit_code})")
                 if stderr_content:
                     logger.error(f"Electron stderr: {stderr_content}")
+                if IS_LINUX and exit_code == -5:
+                    sandbox_path = electron_exe.parent / "chrome-sandbox"
+                    logger.error(
+                        "This is likely a chrome-sandbox permission issue. Fix it with:\n"
+                        f"  sudo chown root:root {sandbox_path}\n"
+                        f"  sudo chmod 4755 {sandbox_path}")
                 _tandem_process = None
                 return False
             if _is_tandem_running():
